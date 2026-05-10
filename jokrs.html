@@ -1,0 +1,2624 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JOKRS Platform — منصة العمالة المنزلية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS & RESET
+═══════════════════════════════════════════════ */
+:root {
+  --ink:        #0a1628;
+  --ink-soft:   #1e3a5f;
+  --ink-muted:  #4a6080;
+  --surface:    #f7f9fc;
+  --white:      #ffffff;
+  --border:     #e1e8f0;
+
+  --green:      #0fa960;
+  --green-glow: rgba(15,169,96,.18);
+  --green-pale: #e8faf1;
+  --blue:       #1956d8;
+  --blue-pale:  #e8f0fd;
+  --amber:      #d97706;
+  --amber-pale: #fef3c7;
+  --violet:     #7c3aed;
+  --rose:       #e11d48;
+
+  --hero-bg:    #06101f;
+  --nav-h:      68px;
+
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+
+  --shadow-sm:  0 2px 8px rgba(10,22,40,.07);
+  --shadow-md:  0 6px 24px rgba(10,22,40,.1);
+  --shadow-lg:  0 16px 48px rgba(10,22,40,.14);
+
+  --ease-out:   cubic-bezier(.22,1,.36,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: 'Cairo', sans-serif;
+  background: var(--white);
+  color: var(--ink);
+  direction: rtl;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════════ */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity .65s var(--ease-out), transform .65s var(--ease-out);
+}
+.reveal.delay-1 { transition-delay: .1s; }
+.reveal.delay-2 { transition-delay: .2s; }
+.reveal.delay-3 { transition-delay: .3s; }
+.reveal.delay-4 { transition-delay: .4s; }
+.reveal.delay-5 { transition-delay: .5s; }
+.reveal.visible { opacity:1; transform: none; }
+
+/* ═══════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════ */
+#nav {
+  position: fixed;
+  top: 0; inset-inline: 0;
+  z-index: 900;
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 4vw, 52px);
+  background: #ffffff;
+  backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid #e1e8f0;
+  transition: background .3s;
+  box-shadow: 0 2px 8px rgba(10,22,40,.07);
+}
+#nav.scrolled {
+  background: #ffffff;
+  box-shadow: 0 6px 24px rgba(10,22,40,.1);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.nav-logo-mark {
+  width: 100px; height: 100px;
+  background: transparent;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; font-weight: 900; color: white;
+  letter-spacing: -1px;
+}
+.nav-logo-mark img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+}
+.nav-logo-text {
+  font-size: 1.1rem; font-weight: 900;
+  color: #0a1628; letter-spacing: -0.5px;
+}
+.nav-logo-text span { color: var(--green); }
+
+.nav-links {
+  display: flex; gap: 6px; list-style: none;
+}
+.nav-links a {
+  font-size: .78rem; font-weight: 600;
+  color: #4a6080;
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: color .2s, background .2s;
+}
+.nav-links a:hover {
+  color: #0a1628;
+  background: rgba(10,22,40,.05);
+}
+.nav-links a.active { color: var(--green); }
+
+.nav-pill {
+  font-size: .72rem; font-weight: 700;
+  color: var(--green);
+  background: rgba(15,169,96,.12);
+  border: 1px solid rgba(15,169,96,.3);
+  padding: 5px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.nav-mobile-toggle {
+  display: none;
+  background: none; border: none;
+  color: #0a1628; font-size: 1.4rem;
+  cursor: pointer; padding: 6px;
+}
+
+/* ═══════════════════════════════════════════════
+   PAGE PROGRESS BAR
+═══════════════════════════════════════════════ */
+#progress-bar {
+  position: fixed;
+  top: var(--nav-h);
+  right: 0; left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--green), #22d77a);
+  transform-origin: right;
+  transform: scaleX(0);
+  z-index: 901;
+  transition: transform .05s linear;
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION LAYOUT
+═══════════════════════════════════════════════ */
+.section-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 52px);
+}
+section { padding: clamp(72px, 9vw, 120px) 0; }
+
+.label-tag {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: .68rem; font-weight: 800;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--green); margin-bottom: 14px;
+}
+.label-tag::before {
+  content: '';
+  width: 18px; height: 2px;
+  background: var(--green);
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.section-title {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 900;
+  color: var(--ink);
+  line-height: 1.15;
+  letter-spacing: -1px;
+  margin-bottom: 16px;
+}
+.section-title .accent { color: var(--green); }
+.section-sub {
+  font-size: 1rem; color: var(--ink-muted);
+  line-height: 1.85; max-width: 680px;
+}
+
+.divider-line {
+  width: 48px; height: 3px;
+  background: var(--green);
+  border-radius: 3px;
+  margin-bottom: 28px;
+}
+
+/* ═══════════════════════════════════════════════
+   HERO SECTION
+═══════════════════════════════════════════════ */
+#hero {
+  min-height: 100vh;
+  background: var(--hero-bg);
+  display: flex; align-items: center;
+  padding-top: var(--nav-h);
+  position: relative;
+  overflow: hidden;
+}
+
+/* animated grid background */
+.hero-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridPan 20s linear infinite;
+}
+@keyframes gridPan {
+  from { background-position: 0 0; }
+  to   { background-position: 60px 60px; }
+}
+
+.hero-glow {
+  position: absolute;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(15,169,96,.18) 0%, transparent 65%);
+  top: -100px; left: -100px;
+  pointer-events: none;
+  animation: glowPulse 5s ease-in-out infinite;
+}
+.hero-glow-2 {
+  position: absolute;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(25,86,216,.12) 0%, transparent 65%);
+  bottom: 50px; right: 10%;
+  pointer-events: none;
+  animation: glowPulse 7s ease-in-out infinite reverse;
+}
+@keyframes glowPulse {
+  0%,100% { opacity: .8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.hero-content { position: relative; z-index: 2; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(15,169,96,.12);
+  border: 1px solid rgba(15,169,96,.3);
+  color: #4ade80;
+  font-size: .73rem; font-weight: 700; letter-spacing: 2px;
+  padding: 7px 18px; border-radius: 30px;
+  margin-bottom: 24px;
+  animation: fadeDown .8s var(--ease-out) .2s both;
+}
+.hero-badge-dot {
+  width: 6px; height: 6px;
+  background: #4ade80;
+  border-radius: 50%;
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+@keyframes fadeDown {
+  from { opacity:0; transform: translateY(-12px); }
+  to   { opacity:1; transform: none; }
+}
+
+.hero-title {
+  font-size: clamp(3.5rem, 9vw, 7rem);
+  font-weight: 900;
+  color: white;
+  line-height: 1.0;
+  letter-spacing: -3px;
+  margin-bottom: 18px;
+  animation: fadeUp .9s var(--ease-out) .35s both;
+}
+.hero-title .green { color: var(--green); }
+.hero-title .outline {
+  -webkit-text-stroke: 2px rgba(255,255,255,.3);
+  color: transparent;
+}
+
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(24px); }
+  to   { opacity:1; transform: none; }
+}
+
+.hero-sub {
+  font-size: 1.05rem;
+  color: rgba(255,255,255,.65);
+  line-height: 1.9;
+  max-width: 600px;
+  margin-bottom: 40px;
+  animation: fadeUp .9s var(--ease-out) .5s both;
+}
+.hero-sub strong { color: rgba(255,255,255,.9); }
+
+.hero-pills {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 52px;
+  animation: fadeUp .9s var(--ease-out) .6s both;
+}
+.hero-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.85);
+  font-size: .83rem; font-weight: 600;
+  padding: 9px 18px; border-radius: 30px;
+  transition: background .2s, border-color .2s;
+}
+.hero-pill:hover {
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,.2);
+}
+.hero-pill-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* HERO FLOW DIAGRAM */
+.hero-flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  animation: fadeUp .9s var(--ease-out) .75s both;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.hero-flow::-webkit-scrollbar { height: 4px; }
+.hero-flow::-webkit-scrollbar-track { background: rgba(255,255,255,.05); }
+.hero-flow::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
+
+.flow-node {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+.flow-icon {
+  width: 54px; height: 54px;
+  background: rgba(255,255,255,.07);
+  border: 1.5px solid rgba(255,255,255,.15);
+  border-radius: 15px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  transition: transform .2s var(--ease-spring), background .2s;
+}
+.flow-node:hover .flow-icon {
+  transform: translateY(-4px);
+  background: rgba(255,255,255,.12);
+}
+.flow-icon.center {
+  background: rgba(15,169,96,.25);
+  border-color: rgba(15,169,96,.5);
+  box-shadow: 0 0 20px rgba(15,169,96,.2);
+}
+.flow-label {
+  font-size: .68rem; font-weight: 700;
+  color: rgba(255,255,255,.7);
+  text-align: center;
+  line-height: 1.3;
+}
+.flow-label.center-lbl { color: #4ade80; }
+.flow-arrow {
+  font-size: 1rem; color: rgba(15,169,96,.7);
+  padding: 0 8px;
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.hero-scroll-hint {
+  position: absolute;
+  bottom: 32px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 6px;
+  color: rgba(255,255,255,.25);
+  font-size: .65rem; font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  animation: float 2.5s ease-in-out infinite;
+}
+.scroll-arrow {
+  width: 20px; height: 32px;
+  border: 1.5px solid rgba(255,255,255,.2);
+  border-radius: 10px;
+  position: relative;
+}
+.scroll-arrow::after {
+  content: '';
+  position: absolute;
+  width: 4px; height: 8px;
+  background: rgba(255,255,255,.4);
+  border-radius: 2px;
+  top: 5px; left: 50%; transform: translateX(-50%);
+  animation: scrollDot 2.5s ease-in-out infinite;
+}
+@keyframes scrollDot {
+  0%  { top: 5px; opacity: 1; }
+  80% { top: 15px; opacity: 0; }
+  100%{ top: 5px; opacity: 0; }
+}
+@keyframes float {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50%     { transform: translateX(-50%) translateY(6px); }
+}
+
+/* ═══════════════════════════════════════════════
+   WHAT IS JOKRS
+═══════════════════════════════════════════════ */
+#what { background: var(--surface); }
+
+/* ── What section flow diagram ── */
+.what-flow-diagram {
+  margin-top: 52px;
+  margin-bottom: 40px;
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 36px 40px;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+.what-flow-diagram svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.what-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.what-card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 28px 24px 24px;
+  position: relative;
+  overflow: hidden;
+  transition: transform .25s var(--ease-spring), box-shadow .25s, border-color .25s;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+}
+.what-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(15,169,96,.3);
+}
+.what-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 100%; height: 3px;
+  background: var(--green);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform .3s var(--ease-out);
+}
+.what-card:hover::after { transform: scaleX(1); }
+.what-card.blue::after { background: var(--blue); }
+.what-card.amber::after { background: var(--amber); }
+.what-card.dark-card::after { background: var(--ink); }
+
+.wc-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem;
+  margin-bottom: 12px;
+}
+.wc-icon.green-bg  { background: var(--green-pale); }
+.wc-icon.blue-bg   { background: var(--blue-pale); }
+.wc-icon.amber-bg  { background: var(--amber-pale); }
+.wc-icon.dark-bg   { background: #e8e8f0; }
+
+.wc-title { font-size: .92rem; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+.wc-text  { font-size: .8rem;  color: var(--ink-muted); line-height: 1.75; }
+
+/* ═══════════════════════════════════════════════
+   SERVICES
+═══════════════════════════════════════════════ */
+#services { background: white; }
+
+.services-tabs {
+  display: flex; gap: 8px;
+  margin: 36px 0 32px;
+  border-bottom: 1.5px solid var(--border);
+  padding-bottom: 0;
+}
+.stab {
+  padding: 12px 22px;
+  font-size: .86rem; font-weight: 700;
+  color: var(--ink-muted);
+  border: none; background: none;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px;
+  border-radius: 4px 4px 0 0;
+  transition: color .2s, border-color .2s;
+  display: flex; align-items: center; gap: 8px;
+}
+.stab:hover { color: var(--ink); }
+.stab.active { color: var(--green); border-bottom-color: var(--green); }
+
+.service-panel { display: none; }
+.service-panel.active { display: block; }
+
+.service-header {
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  padding: 28px 32px;
+  display: flex; align-items: flex-start; gap: 20px;
+  position: relative; overflow: hidden;
+}
+.service-header::before {
+  content: '';
+  position: absolute; inset: 0;
+  opacity: .04;
+  background: repeating-linear-gradient(
+    -45deg,
+    currentColor 0, currentColor 1px,
+    transparent 1px, transparent 8px
+  );
+}
+.service-header.green-hd  { background: linear-gradient(135deg,#f0fdf9,#dcf9ee); color: var(--green); }
+.service-header.blue-hd   { background: linear-gradient(135deg,#eff6ff,#dbeafe); color: var(--blue); }
+.service-header.amber-hd  { background: linear-gradient(135deg,#fffbeb,#fef3c7); color: var(--amber); }
+
+.service-badge {
+  flex-shrink: 0;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: .68rem; font-weight: 800; letter-spacing: 2px;
+  color: white;
+  margin-top: 3px;
+}
+.badge-green  { background: var(--green); }
+.badge-blue   { background: var(--blue); }
+.badge-amber  { background: var(--amber); }
+
+.service-name { font-size: 1.3rem; font-weight: 900; color: var(--ink); margin-bottom: 8px; }
+.service-desc { font-size: .88rem; color: var(--ink-muted); line-height: 1.85; max-width: 620px; }
+
+.service-example {
+  margin-top: 14px;
+  background: white;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: .82rem; color: var(--ink-muted);
+  line-height: 1.7;
+}
+.service-example strong { color: var(--ink); }
+
+.service-body {
+  border: 1.5px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  padding: 32px;
+  background: var(--surface);
+}
+
+.steps-label {
+  font-size: .68rem; font-weight: 800; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--ink-muted);
+  margin-bottom: 24px;
+  display: flex; align-items: center; gap: 8px;
+}
+.steps-label::before {
+  content: ''; width: 20px; height: 1px;
+  background: var(--ink-muted);
+}
+
+/* Horizontal stepper */
+.stepper-h {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0;
+  position: relative;
+}
+.stepper-h::before {
+  content: '';
+  position: absolute;
+  top: 18px; right: 6%; left: 6%;
+  height: 1.5px;
+  background: var(--border);
+  z-index: 0;
+}
+.step-h {
+  display: flex; flex-direction: column;
+  align-items: center; text-align: center;
+  gap: 9px;
+  position: relative;
+  z-index: 1;
+  padding: 0 4px;
+}
+.step-num {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 800;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.step-name { font-size: .7rem; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.step-desc { font-size: .65rem; color: var(--ink-muted); line-height: 1.45; }
+
+/* Vertical stepper */
+.stepper-v {
+  display: flex; flex-direction: column;
+  gap: 0;
+  max-width: 640px;
+}
+.step-v {
+  display: flex; align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 26px;
+  position: relative;
+}
+.step-v::before {
+  content: '';
+  position: absolute;
+  top: 36px;
+  right: 17px;
+  width: 2px;
+  height: calc(100% - 12px);
+  background: var(--border);
+}
+.step-v:last-child::before { display: none; }
+.step-v .step-num { flex-shrink: 0; }
+.step-v-content { padding-top: 6px; }
+.step-v-name { font-size: .9rem; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
+.step-v-desc { font-size: .8rem; color: var(--ink-muted); line-height: 1.75; }
+
+.note-callout {
+  margin-top: 24px;
+  background: var(--ink);
+  color: white;
+  border-radius: var(--r-md);
+  padding: 16px 22px;
+  font-size: .84rem; line-height: 1.8;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.note-icon { font-size: 1rem; flex-shrink: 0; margin-top: 2px; }
+
+/* ═══════════════════════════════════════════════
+   SYSTEM COMPONENTS (dark section)
+═══════════════════════════════════════════════ */
+#system {
+  background: var(--ink);
+  position: relative; overflow: hidden;
+}
+#system::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.sys-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-top: 48px;
+  position: relative; z-index: 1;
+}
+.sys-card {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: var(--r-lg);
+  padding: 24px 20px;
+  transition: transform .25s var(--ease-spring), background .25s, border-color .25s;
+  cursor: default;
+}
+.sys-card:hover {
+  transform: translateY(-6px);
+  background: rgba(255,255,255,.09);
+  border-color: rgba(15,169,96,.3);
+}
+.sys-emoji { font-size: 1.8rem; display: block; margin-bottom: 14px; }
+.sys-title { font-size: .9rem; font-weight: 800; color: white; margin-bottom: 8px; line-height: 1.35; }
+.sys-desc  { font-size: .75rem; color: rgba(255,255,255,.55); line-height: 1.75; margin-bottom: 14px; }
+.sys-list  { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.sys-list li {
+  font-size: .72rem; color: rgba(255,255,255,.7);
+  display: flex; align-items: center; gap: 7px;
+}
+.sys-list li::before {
+  content: '';
+  width: 5px; height: 5px;
+  background: var(--green);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   JOURNEY / TIMELINE
+═══════════════════════════════════════════════ */
+#customer-flow { background: var(--surface); }
+
+.journey-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  margin-top: 48px;
+  position: relative;
+}
+.journey-grid::before {
+  content: '';
+  position: absolute;
+  top: 20px; right: 4%; left: 4%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--green) 0%, var(--blue) 100%);
+  opacity: .2;
+}
+.journey-step {
+  display: flex; flex-direction: column;
+  align-items: center; text-align: center;
+  padding: 0 8px;
+  position: relative;
+  z-index: 1;
+}
+.journey-num {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .82rem; font-weight: 800;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+  transition: background .2s, border-color .2s, color .2s, transform .2s;
+  box-shadow: var(--shadow-sm);
+}
+.journey-step:hover .journey-num {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+  transform: scale(1.1);
+}
+.journey-name { font-size: .78rem; font-weight: 700; color: var(--ink); margin-bottom: 4px; line-height: 1.35; }
+.journey-sub  { font-size: .67rem; color: var(--ink-muted); line-height: 1.5; }
+
+/* office journey */
+#office-flow { background: white; }
+
+/* agency journey */
+#agency-flow { background: var(--surface); }
+
+.agency-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 48px;
+}
+.ag-card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px 20px;
+  display: flex; gap: 14px; align-items: flex-start;
+  transition: transform .25s var(--ease-spring), box-shadow .25s;
+}
+.ag-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+.ag-num {
+  width: 34px; height: 34px;
+  background: var(--green-pale);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 800;
+  color: var(--green);
+  flex-shrink: 0;
+}
+.ag-title { font-size: .9rem; font-weight: 800; color: var(--ink); margin-bottom: 5px; }
+.ag-desc  { font-size: .8rem; color: var(--ink-muted); line-height: 1.7; }
+
+/* ═══════════════════════════════════════════════
+   ECOSYSTEM (dark)
+═══════════════════════════════════════════════ */
+#how {
+  background: linear-gradient(160deg, #07192e 0%, #0a1e12 100%);
+  position: relative; overflow: hidden;
+}
+#how::after {
+  content: '';
+  position: absolute;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(15,169,96,.1) 0%, transparent 65%);
+  top: -150px; left: -100px;
+  pointer-events: none;
+}
+
+.eco-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: center;
+  position: relative; z-index: 1;
+}
+.eco-desc {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--r-lg);
+  padding: 22px 26px;
+  font-size: .9rem; color: rgba(255,255,255,.7);
+  line-height: 1.9;
+  margin-top: 28px;
+}
+
+.ecosystem-flow {
+  display: flex; flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+}
+.eco-node {
+  padding: 14px 22px;
+  border-radius: 12px;
+  font-size: .88rem; font-weight: 700;
+  text-align: center;
+  position: relative;
+  transition: transform .2s;
+}
+.eco-node:hover { transform: scale(1.02); }
+.eco-node.main-node {
+  background: var(--green);
+  color: white;
+  font-size: .95rem;
+  padding: 18px 22px;
+  box-shadow: 0 8px 24px rgba(15,169,96,.25);
+}
+.eco-node.secondary-node {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.85);
+}
+.eco-node.highlight-node {
+  background: rgba(25,86,216,.15);
+  border: 1px solid rgba(25,86,216,.3);
+  color: #93c5fd;
+}
+.eco-node.amber-node {
+  background: rgba(217,119,6,.12);
+  border: 1px solid rgba(251,191,36,.25);
+  color: #fbbf24;
+}
+.eco-arrow-down {
+  text-align: center;
+  color: rgba(15,169,96,.6);
+  font-size: 1rem;
+  padding: 4px 0;
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════
+   MVP
+═══════════════════════════════════════════════ */
+#mvp { background: linear-gradient(160deg, #f0fdf9, #eff6ff); }
+
+.mvp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 44px;
+}
+.mvp-item {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: transform .2s var(--ease-spring), box-shadow .2s;
+}
+.mvp-item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+.mvp-check {
+  width: 30px; height: 30px;
+  background: var(--green-pale);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--green); font-size: .85rem;
+  flex-shrink: 0;
+  font-weight: 800;
+}
+.mvp-text { font-size: .86rem; font-weight: 600; color: var(--ink); line-height: 1.45; }
+
+/* ═══════════════════════════════════════════════
+   PAGE SEPARATOR
+═══════════════════════════════════════════════ */
+.page-sep {
+  height: 6px;
+  background: linear-gradient(90deg, var(--ink), var(--green), var(--blue), var(--green), var(--ink));
+  background-size: 200% 100%;
+  animation: gradShift 5s linear infinite;
+}
+@keyframes gradShift {
+  from { background-position: 200% 0; }
+  to   { background-position: 0% 0; }
+}
+
+/* ═══════════════════════════════════════════════
+   PAGE 2 HERO
+═══════════════════════════════════════════════ */
+#regulatory {
+  background: var(--hero-bg);
+  min-height: 60vh;
+  display: flex; align-items: center;
+  text-align: center;
+  padding-top: calc(var(--nav-h) + 40px);
+  position: relative; overflow: hidden;
+}
+#regulatory::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(15,169,96,.12) 0%, transparent 60%);
+}
+.reg-hero-content { position: relative; z-index: 2; }
+
+.p2-tag {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(15,169,96,.15);
+  border: 1px solid rgba(74,222,128,.3);
+  color: #4ade80;
+  font-size: .72rem; font-weight: 700; letter-spacing: 2px;
+  padding: 6px 18px; border-radius: 30px;
+  margin-bottom: 18px;
+}
+.p2-highlight {
+  display: inline-block;
+  margin-top: 28px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--r-lg);
+  padding: 16px 32px;
+  font-size: 1rem; font-weight: 800; color: white;
+  line-height: 1.9;
+}
+.p2-highlight .green-text { color: #4ade80; }
+
+/* ═══════════════════════════════════════════════
+   GOV SYSTEMS
+═══════════════════════════════════════════════ */
+#gov-systems { background: var(--surface); }
+
+.gov-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 44px;
+}
+.gov-card {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .25s, border-color .25s;
+}
+.gov-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(15,169,96,.2);
+}
+.gov-head {
+  padding: 20px 24px 18px;
+  border-bottom: 1.5px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 14px;
+}
+.gov-icon {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+.gov-name { font-size: 1rem; font-weight: 900; color: var(--ink); }
+.gov-what { font-size: .74rem; color: var(--ink-muted); margin-top: 2px; }
+.gov-body { padding: 20px 24px; }
+
+.gov-roles { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.gov-roles li {
+  font-size: .8rem; color: var(--ink-muted);
+  display: flex; align-items: center; gap: 7px;
+}
+.gov-roles li::before {
+  content: '';
+  width: 5px; height: 5px;
+  background: var(--blue);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.rel-label {
+  font-size: .65rem; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--green);
+  margin-bottom: 8px;
+}
+.rel-list { list-style: none; display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+.rel-list li {
+  font-size: .8rem; color: var(--ink);
+  display: flex; align-items: flex-start; gap: 7px;
+  line-height: 1.5;
+}
+.ri-yes { color: var(--green); font-weight: 800; flex-shrink: 0; }
+.ri-no  { color: var(--rose);  font-weight: 800; flex-shrink: 0; }
+
+.key-box {
+  border-radius: 9px; padding: 9px 14px;
+  font-size: .78rem; font-weight: 700;
+  color: white;
+  display: flex; align-items: center; gap: 7px;
+}
+
+.gov-note {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: .78rem; color: var(--ink-muted); line-height: 1.7;
+}
+
+/* ═══════════════════════════════════════════════
+   POSITIONING
+═══════════════════════════════════════════════ */
+#positioning { background: white; }
+
+.pos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 44px;
+}
+.pos-box {
+  border-radius: var(--r-xl);
+  padding: 26px 24px;
+}
+.pos-box.is-box   { background: var(--green-pale); border: 2px solid #86efac; }
+.pos-box.not-box  { background: #fff1f2;            border: 2px solid #fecdd3; }
+.pos-title {
+  font-size: .7rem; font-weight: 800;
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 7px;
+}
+.pos-box.is-box  .pos-title { color: var(--green); }
+.pos-box.not-box .pos-title { color: var(--rose); }
+.pos-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.pos-list li {
+  font-size: .88rem; font-weight: 600;
+  color: var(--ink);
+  display: flex; align-items: center; gap: 9px;
+}
+.pos-note {
+  grid-column: 1/-1;
+  background: var(--ink);
+  color: white;
+  border-radius: var(--r-lg);
+  padding: 18px 24px;
+  font-size: .88rem; line-height: 1.85;
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.pos-note-icon { font-size: 1.2rem; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════
+   LEGAL / REGULATIONS
+═══════════════════════════════════════════════ */
+#legal { background: var(--ink); position: relative; overflow: hidden; }
+#legal::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.legal-grid-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 44px;
+  position: relative; z-index: 1;
+}
+.legal-card {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  transition: background .2s, transform .2s var(--ease-spring);
+}
+.legal-card:hover {
+  background: rgba(255,255,255,.08);
+  transform: translateY(-4px);
+}
+.legal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.legal-icon {
+  width: 42px; height: 42px;
+  background: rgba(255,255,255,.1);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.legal-title { font-size: .93rem; font-weight: 800; color: white; line-height: 1.4; }
+.legal-sub-label {
+  font-size: .65rem; font-weight: 800; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--green);
+  margin-bottom: 5px;
+  margin-top: 12px;
+}
+.legal-text { font-size: .8rem; color: rgba(255,255,255,.6); line-height: 1.75; }
+
+/* Visa pre-check card */
+.visa-card {
+  margin-top: 28px;
+  background: linear-gradient(160deg, rgba(255,255,255,.97), rgba(240,249,255,.95));
+  border-radius: var(--r-xl);
+  padding: 32px;
+  color: var(--ink);
+  position: relative; z-index: 1;
+  box-shadow: 0 24px 56px rgba(2,6,23,.22);
+}
+.visa-head {
+  display: flex; align-items: flex-start;
+  gap: 16px; margin-bottom: 22px;
+}
+.visa-icon {
+  width: 54px; height: 54px;
+  background: linear-gradient(160deg, var(--green-pale), var(--amber-pale));
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; flex-shrink: 0;
+}
+.visa-title { font-size: 1.15rem; font-weight: 900; color: var(--ink); margin-bottom: 6px; }
+.visa-sub   { font-size: .88rem; color: var(--ink-muted); line-height: 1.9; }
+
+.visa-flow {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 18px; margin-top: 22px;
+}
+.visa-pane {
+  background: rgba(248,250,252,.95);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 20px;
+}
+.visa-pane-title { font-size: .9rem; font-weight: 900; color: var(--ink); margin-bottom: 14px; }
+.visa-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.visa-list li {
+  font-size: .82rem; color: var(--ink-muted); line-height: 1.75;
+  padding: 9px 12px;
+  background: white; border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.visa-step {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin-top: 12px;
+}
+.visa-step-num {
+  width: 28px; height: 28px;
+  background: var(--ink); color: white;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 800;
+  flex-shrink: 0;
+}
+.visa-step-text { font-size: .82rem; color: var(--ink-muted); line-height: 1.8; }
+
+.visa-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px; margin-top: 18px;
+}
+.vs {
+  border-radius: 14px; padding: 14px 12px;
+  border: 1px solid transparent; background: white;
+}
+.vs strong { display: block; font-size: .85rem; margin-bottom: 5px; }
+.vs span   { font-size: .75rem; line-height: 1.65; color: var(--ink-muted); display: block; }
+.vs.eligible   { background: #f0fdf4; border-color: #86efac; }
+.vs.eligible strong  { color: #15803d; }
+.vs.review     { background: #fffbeb; border-color: #fcd34d; }
+.vs.review strong    { color: #b45309; }
+.vs.ineligible { background: #fff1f2; border-color: #fda4af; }
+.vs.ineligible strong{ color: #be123c; }
+
+.visa-reasons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-top: 16px;
+}
+.visa-reason {
+  background: white; border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px;
+  font-size: .8rem; color: var(--ink-muted); line-height: 1.65;
+}
+.visa-integration-note {
+  margin-top: 16px;
+  background: rgba(248,250,252,.95);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px;
+}
+.visa-warning {
+  margin-top: 16px;
+  background: linear-gradient(160deg, #fff7ed, #fff1f2);
+  border: 1px solid #fdba74;
+  border-radius: 14px; padding: 14px 18px;
+  font-size: .84rem; font-weight: 700; color: #9a3412; line-height: 1.9;
+}
+
+/* ═══════════════════════════════════════════════
+   SAFE STATEMENTS
+═══════════════════════════════════════════════ */
+#safe-positioning { background: var(--surface); }
+
+.statement-grid { display: grid; gap: 14px; margin-top: 44px; }
+.statement-box {
+  border-radius: var(--r-lg);
+  padding: 22px 26px;
+  border: 1.5px solid var(--border);
+  line-height: 1.9;
+}
+.statement-box.primary {
+  background: linear-gradient(160deg, #eff6ff, #f0fdf9);
+  font-size: .96rem; font-weight: 800; color: var(--ink);
+}
+.statement-box.secondary {
+  background: #fff7ed;
+  font-size: .9rem; font-weight: 700; color: #7c2d12;
+}
+
+/* ═══════════════════════════════════════════════
+   REQUIREMENTS
+═══════════════════════════════════════════════ */
+#requirements { background: white; }
+
+.req-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px; margin-top: 44px;
+}
+.req-item {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: transform .2s var(--ease-spring), border-color .2s;
+}
+.req-item:hover {
+  transform: translateX(-4px);
+  border-color: var(--green);
+}
+.req-icon {
+  width: 34px; height: 34px;
+  background: var(--green-pale);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; flex-shrink: 0;
+}
+.req-text { font-size: .84rem; font-weight: 600; color: var(--ink); line-height: 1.5; }
+
+/* ═══════════════════════════════════════════════
+   INTEGRATION FLOW
+═══════════════════════════════════════════════ */
+#integration { background: var(--surface); }
+
+.int-wrap {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 36px;
+  margin-top: 44px;
+  box-shadow: var(--shadow-md);
+}
+.int-flow {
+  display: flex; align-items: center;
+  justify-content: center;
+  gap: 0; flex-wrap: wrap; margin: 28px 0;
+}
+.int-node {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 7px;
+  flex-shrink: 0;
+}
+.int-box {
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700; font-size: .85rem;
+  text-align: center; white-space: nowrap;
+  transition: transform .2s var(--ease-spring);
+}
+.int-box:hover { transform: scale(1.04); }
+.int-box.user     { background: var(--blue-pale); color: var(--blue); border: 1.5px solid #bfdbfe; }
+.int-box.platform { background: var(--ink); color: white; }
+.int-box.gov-box  { background: var(--amber-pale); color: var(--amber); border: 1.5px solid #fde68a; }
+.int-box.back-box { background: var(--green-pale); color: var(--green); border: 1.5px solid #bbf7d0; }
+.int-arr { font-size: 1.1rem; color: var(--ink-muted); padding: 0 10px; }
+.int-lbl { font-size: .63rem; font-weight: 600; color: var(--ink-muted); text-align: center; }
+
+.int-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px; margin-top: 24px;
+}
+.int-pillar {
+  background: var(--surface);
+  border-radius: 12px; padding: 16px;
+  text-align: center; border: 1px solid var(--border);
+}
+.int-pillar-icon { font-size: 1.4rem; margin-bottom: 7px; }
+.int-pillar-title { font-size: .85rem; font-weight: 800; color: var(--ink); }
+
+.int-note {
+  background: var(--surface);
+  border-radius: 10px; padding: 14px 20px;
+  margin-top: 20px;
+  font-size: .84rem; color: var(--ink-muted); line-height: 1.8;
+  text-align: center; border: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════
+   CLOSING SECTIONS
+═══════════════════════════════════════════════ */
+#closing {
+  background: var(--ink);
+  min-height: 60vh;
+  display: flex; align-items: center;
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+#closing::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(15,169,96,.08) 0%, transparent 65%);
+}
+.closing-content { position: relative; z-index: 2; }
+.cta-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--green); color: white;
+  font-family: 'Cairo', sans-serif;
+  font-size: .95rem; font-weight: 700;
+  padding: 15px 36px; border-radius: 50px;
+  border: none; cursor: pointer;
+  text-decoration: none;
+  margin-top: 36px;
+  transition: background .2s, transform .2s var(--ease-spring), box-shadow .2s;
+  box-shadow: 0 8px 24px rgba(15,169,96,.25);
+}
+.cta-btn:hover {
+  background: #0d9655;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(15,169,96,.35);
+}
+
+.p2-close {
+  background: linear-gradient(160deg, #f0fdf9, #eff6ff);
+  min-height: 50vh;
+  display: flex; align-items: center;
+  text-align: center;
+}
+.sum-pills {
+  display: flex; gap: 10px;
+  justify-content: center; flex-wrap: wrap;
+  margin-top: 30px;
+}
+.sum-pill {
+  background: white; border: 1.5px solid var(--border);
+  border-radius: 28px; padding: 10px 20px;
+  font-size: .85rem; font-weight: 700; color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; gap: 8px;
+  transition: transform .2s var(--ease-spring), box-shadow .2s;
+}
+.sum-pill:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.sum-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .sys-grid { grid-template-columns: repeat(3, 1fr); }
+  .journey-grid { grid-template-columns: repeat(5, 1fr); }
+  .stepper-h { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .stepper-h::before { display: none; }
+}
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+  .nav-mobile-toggle { display: flex; }
+  .what-cards { grid-template-columns: 1fr 1fr; }
+  .eco-grid { grid-template-columns: 1fr; gap: 32px; }
+  .gov-grid { grid-template-columns: 1fr; }
+  .pos-grid { grid-template-columns: 1fr; }
+  .pos-note { grid-column: 1; }
+  .visa-flow { grid-template-columns: 1fr; }
+  .visa-status-grid { grid-template-columns: 1fr; }
+  .visa-reasons { grid-template-columns: 1fr; }
+  .req-grid { grid-template-columns: 1fr; }
+  .int-flow { flex-direction: column; gap: 4px; }
+  .int-arr { transform: rotate(90deg); padding: 6px 0; }
+  .int-pillars { grid-template-columns: 1fr; }
+  .agency-grid { grid-template-columns: 1fr; }
+  .legal-grid-2x2 { grid-template-columns: 1fr; }
+  .sys-grid { grid-template-columns: repeat(2, 1fr); }
+  .mvp-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+  .what-cards { grid-template-columns: 1fr 1fr; }
+  .stepper-h {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .stepper-h::before { display: none; }
+  .step-h {
+    flex-direction: row;
+    text-align: right;
+    gap: 12px;
+    padding: 0 0 18px;
+  }
+  .step-num { flex-shrink: 0; }
+  .journey-grid { grid-template-columns: repeat(2, 1fr); }
+  .journey-grid::before { display: none; }
+  .journey-step { margin-bottom: 16px; }
+  .sys-grid { grid-template-columns: 1fr; }
+  .mvp-grid { grid-template-columns: 1fr; }
+  .hero-title { font-size: 3rem; letter-spacing: -1px; }
+  .int-pillars { grid-template-columns: 1fr; }
+}
+
+/* nav mobile menu open state */
+#nav.menu-open .nav-links {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: var(--nav-h); right: 0; left: 0;
+  background: rgba(6,16,31,.97);
+  backdrop-filter: blur(16px);
+  padding: 16px 20px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  gap: 4px;
+  z-index: 800;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ PROGRESS BAR ══ -->
+<div id="progress-bar" role="progressbar" aria-hidden="true"></div>
+
+<!-- ══════════ NAVIGATION ══════════ -->
+<nav id="nav" role="navigation" aria-label="القائمة الرئيسية">
+  <a href="#hero" class="nav-logo" aria-label="JOKRS - الصفحة الرئيسية">
+    <div class="nav-logo-mark" aria-hidden="true"><img src="assets/logo.png" alt="JOKRS Logo"></div>
+    <!-- <span class="nav-logo-text">JOKRS <span>Platform</span></span> -->
+  </a>
+
+  <ul class="nav-links" id="nav-links-list">
+    <li><a href="#what">التعريف</a></li>
+    <li><a href="#services">الخدمات</a></li>
+    <li><a href="#system">النظام</a></li>
+    <li><a href="#customer-flow">رحلة العميل</a></li>
+    <li><a href="#mvp">MVP</a></li>
+    <li><a href="#regulatory" style="color:var(--green);font-weight:800">الإطار التنظيمي</a></li>
+    <li><a href="ui-progress.html" style="color:var(--green);font-weight:800">📊 Progress</a></li>
+  </ul>
+
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nav-pill">عرض تقديمي</span>
+    <button class="nav-mobile-toggle" id="nav-toggle" aria-label="فتح القائمة" aria-expanded="false">☰</button>
+  </div>
+</nav>
+
+<!-- ══════════ HERO ══════════ -->
+<section id="hero" aria-labelledby="hero-title">
+  <div class="hero-grid-bg" aria-hidden="true"></div>
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="hero-glow-2" aria-hidden="true"></div>
+
+  <div class="section-inner hero-content" style="width:100%">
+    <div class="hero-badge" aria-label="منصة العمالة المنزلية في السعودية">
+      <span class="hero-badge-dot" aria-hidden="true"></span>
+      🇸🇦 منصة العمالة المنزلية في السعودية
+    </div>
+
+    <h1 id="hero-title" class="hero-title">
+      JOKRS<br>
+      <span class="green">Platform</span>
+    </h1>
+
+    <p class="hero-sub">
+      منصة وسيطة تربط العميل النهائي بمكاتب وشركات العمالة المنزلية والاستقدام في السعودية.<br>
+      جوكرز عبارة عن <strong>Aggregator</strong> ومنظومة تشغيل رقمية في نفس الوقت.
+    </p>
+
+    <div class="hero-pills" role="list">
+      <div class="hero-pill" role="listitem"><span class="hero-pill-dot" aria-hidden="true"></span>العميل: يطلب، يقارن، يدفع، ويتابع</div>
+      <div class="hero-pill" role="listitem"><span class="hero-pill-dot" aria-hidden="true"></span>المكتب: يستقبل ويدير التشغيل</div>
+      <div class="hero-pill" role="listitem"><span class="hero-pill-dot" aria-hidden="true"></span>الوكالة: تجهز العمال والمستندات</div>
+    </div>
+
+    <div class="hero-flow" role="img" aria-label="تدفق العمل من العميل إلى العامل">
+      <div class="flow-node">
+        <div class="flow-icon">📱</div>
+        <div class="flow-label">Customer App</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-node">
+        <div class="flow-icon center">⚡</div>
+        <div class="flow-label center-lbl">JOKRS</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">🏢</div>
+        <div class="flow-label">Saudi Offices</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">🌐</div>
+        <div class="flow-label">External Agencies</div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-node">
+        <div class="flow-icon">👷</div>
+        <div class="flow-label">Worker</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-scroll-hint" aria-hidden="true">
+    <div class="scroll-arrow"></div>
+    مرر للأسفل
+  </div>
+</section>
+
+<!-- ══════════ ما هو جوكرز ══════════ -->
+<section id="what" aria-labelledby="what-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">التعريف</div>
+      <h2 id="what-title" class="section-title">ما هو <span class="accent">جوكرز</span>؟</h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">جوكرز ليس مجرد تطبيق للعميل، وليس مجرد نظام داخلي للمكاتب. هو منصة تجمع بين <strong>Marketplace</strong> للعميل النهائي، وأنظمة تشغيل للمكاتب والشركات والوكالات.</p>
+    </div>
+
+    <!-- Flow Diagram -->
+    <div class="what-flow-diagram reveal delay-1" role="img" aria-label="مخطط يوضح العلاقة بين أطراف منصة جوكرز">
+      <svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" style="font-family:'Cairo',sans-serif;width:100%;height:auto;min-width:600px">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8"/>
+          </marker>
+          <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#0fa960"/>
+          </marker>
+          <!-- subtle shadow filter -->
+          <filter id="card-shadow" x="-10%" y="-20%" width="120%" height="160%">
+            <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0a1628" flood-opacity="0.08"/>
+          </filter>
+          <filter id="center-shadow" x="-15%" y="-25%" width="130%" height="170%">
+            <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0fa960" flood-opacity="0.22"/>
+          </filter>
+        </defs>
+
+        <!-- ── Connector lines ── -->
+        <!-- Customer → JOKRS -->
+        <line x1="152" y1="100" x2="300" y2="100" stroke="#e1e8f0" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+        <!-- JOKRS → Offices -->
+        <line x1="600" y1="100" x2="748" y2="100" stroke="#e1e8f0" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+        <!-- Offices → Agency (diagonal down) -->
+        <path d="M 843 148 Q 843 175 760 185 Q 680 195 620 185 Q 500 165 450 185 Q 380 195 300 185 Q 220 175 157 148"
+              fill="none" stroke="#e1e8f0" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+        <!-- ── Node: العميل ── -->
+        <rect x="16" y="60" width="136" height="80" rx="14" fill="white" stroke="#e1e8f0" stroke-width="1.5" filter="url(#card-shadow)"/>
+        <rect x="16" y="60" width="136" height="4" rx="2" fill="#0fa960"/>
+        <text x="84" y="104" text-anchor="middle" font-size="22">👤</text>
+        <text x="84" y="124" text-anchor="middle" font-size="11" font-weight="700" fill="#0a1628">العميل النهائي</text>
+        <text x="84" y="140" text-anchor="middle" font-size="9" fill="#4a6080">يطلب · يقارن · يدفع</text>
+
+        <!-- ── Node: JOKRS (center, prominent) ── -->
+        <rect x="305" y="42" width="290" height="116" rx="18" fill="#0a1628" filter="url(#center-shadow)"/>
+        <!-- green accent line top -->
+        <rect x="305" y="42" width="290" height="4" rx="2" fill="#0fa960"/>
+        <!-- inner glow ring -->
+        <rect x="313" y="54" width="274" height="96" rx="13" fill="none" stroke="rgba(15,169,96,0.18)" stroke-width="1"/>
+        <text x="450" y="94" text-anchor="middle" font-size="13" font-weight="900" fill="white" letter-spacing="-0.5">⚡ JOKRS Platform</text>
+        <text x="450" y="112" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.55)">وسيط رقمي · منظومة تشغيل</text>
+        <!-- sub-labels row -->
+        <rect x="325" y="120" width="74" height="24" rx="6" fill="rgba(15,169,96,0.15)"/>
+        <text x="362" y="136" text-anchor="middle" font-size="8.5" fill="#4ade80" font-weight="700">Marketplace</text>
+        <rect x="413" y="120" width="74" height="24" rx="6" fill="rgba(255,255,255,0.07)"/>
+        <text x="450" y="136" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.65)" font-weight="700">White Label</text>
+        <rect x="501" y="120" width="74" height="24" rx="6" fill="rgba(255,255,255,0.07)"/>
+        <text x="538" y="136" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.65)" font-weight="700">Admin Panel</text>
+
+        <!-- ── Node: المكاتب ── -->
+        <rect x="748" y="60" width="136" height="80" rx="14" fill="white" stroke="#e1e8f0" stroke-width="1.5" filter="url(#card-shadow)"/>
+        <rect x="748" y="60" width="136" height="4" rx="2" fill="#1956d8"/>
+        <text x="816" y="104" text-anchor="middle" font-size="22">🏢</text>
+        <text x="816" y="124" text-anchor="middle" font-size="11" font-weight="700" fill="#0a1628">مكاتب العمالة</text>
+        <text x="816" y="140" text-anchor="middle" font-size="9" fill="#4a6080">يستقبل · يدير · يقدم</text>
+
+        <!-- ── Node: الوكالات (bottom center) ── -->
+        <rect x="382" y="156" width="136" height="42" rx="12" fill="white" stroke="#e1e8f0" stroke-width="1.5" filter="url(#card-shadow)"/>
+        <rect x="382" y="156" width="136" height="3" rx="1.5" fill="#d97706"/>
+        <text x="450" y="178" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0a1628">🌐 الوكالات الخارجية</text>
+        <text x="450" y="192" text-anchor="middle" font-size="8.5" fill="#4a6080">تجهيز العمال والمستندات</text>
+
+        <!-- Arrow label: طلب -->
+        <text x="226" y="94" text-anchor="middle" font-size="8.5" fill="#94a3b8" font-weight="600">طلب</text>
+        <!-- Arrow label: خدمة -->
+        <text x="674" y="94" text-anchor="middle" font-size="8.5" fill="#94a3b8" font-weight="600">خدمة</text>
+      </svg>
+    </div>
+
+    <!-- 4 Cards -->
+    <div class="what-cards">
+      <div class="what-card reveal delay-1">
+        <div class="wc-icon green-bg">👤</div>
+        <div class="wc-title">العميل النهائي</div>
+        <div class="wc-text">يستخدم الموبايل أو الويب لطلب الخدمات، مقارنة العروض، الدفع، ومتابعة الطلبات.</div>
+      </div>
+      <div class="what-card blue reveal delay-2">
+        <div class="wc-icon blue-bg">🏢</div>
+        <div class="wc-title">مكاتب وشركات العمالة</div>
+        <div class="wc-text">تقدم الخدمات وتدير العمال والعروض والأسعار من خلال نظام White Label خاص.</div>
+      </div>
+      <div class="what-card amber reveal delay-3">
+        <div class="wc-icon amber-bg">🌐</div>
+        <div class="wc-title">الوكالات الخارجية</div>
+        <div class="wc-text">تساعد في تجهيز العمال والبيانات والمستندات قبل السفر للسعودية.</div>
+      </div>
+      <div class="what-card dark-card reveal delay-4">
+        <div class="wc-icon dark-bg">⚡</div>
+        <div class="wc-title">جوكرز</div>
+        <div class="wc-text">يربط كل الأطراف في منظومة واحدة — كل طرف لديه واجهة تناسب دوره.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ الخدمات ══════════ -->
+<section id="services" aria-labelledby="services-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">الخدمات</div>
+      <h2 id="services-title" class="section-title">الخدمات الرئيسية في <span class="accent">JOKRS</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">ثلاث خدمات أساسية منتشرة في سوق العمالة المنزلية داخل السعودية.</p>
+    </div>
+
+    <div class="services-tabs reveal delay-1" role="tablist" aria-label="الخدمات">
+      <button class="stab active" role="tab" aria-selected="true" aria-controls="panel-hourly" id="tab-hourly" onclick="switchTab('hourly',this)">
+        🕐 الخدمة بالساعة
+      </button>
+      <button class="stab" role="tab" aria-selected="false" aria-controls="panel-livein" id="tab-livein" onclick="switchTab('livein',this)">
+        🏠 خدمة المقيم
+      </button>
+      <button class="stab" role="tab" aria-selected="false" aria-controls="panel-recruit" id="tab-recruit" onclick="switchTab('recruit',this)">
+        ✈️ الاستقدام
+      </button>
+    </div>
+
+    <!-- Hourly Panel -->
+    <div id="panel-hourly" class="service-panel active" role="tabpanel" aria-labelledby="tab-hourly">
+      <div class="service-header green-hd">
+        <span class="service-badge badge-green">خدمة ١</span>
+        <div>
+          <div class="service-name">🕐 الخدمة بالساعة — Hourly</div>
+          <div class="service-desc">
+            موجهة للعميل الذي يحتاج عامل أو عاملة لفترات قصيرة ومتكررة، مثل تنظيف المنزل بعدد ساعات وزيارات محددة.
+            <ul style="margin-top:10px;margin-right:20px;list-style-type:disc">
+              <li>زيارة واحدة (Single Visit)</li>
+              <li>زيارة متعددة (Multi Visit)</li>
+            </ul>
+          </div>
+          <div class="service-example"><strong>مثال:</strong> عميل يحتاج منظفة لمدة 4 ساعات، زيارتين في الأسبوع لمدة شهر — يظهر له جدول بـ 8 زيارات منها تمت وقادمة.</div>
+        </div>
+      </div>
+      <div class="service-body">
+        <div class="steps-label">فلو الخدمة بالساعة</div>
+        <div class="stepper-h" role="list">
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">1</div>
+            <div class="step-name">اختيار الخدمة</div>
+            <div class="step-desc">يختار بالساعة</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">2</div>
+            <div class="step-name">النوع والساعات</div>
+            <div class="step-desc">نوع الخدمة والعدد</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">3</div>
+            <div class="step-name">الجدول</div>
+            <div class="step-desc">الزيارات والمواعيد</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">4</div>
+            <div class="step-name">إرسال الطلب</div>
+            <div class="step-desc">يصل للمكاتب</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">5</div>
+            <div class="step-name">العروض</div>
+            <div class="step-desc">المكاتب تقدم عروض</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">6</div>
+            <div class="step-name">المقارنة</div>
+            <div class="step-desc">السعر والتقييم</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">7</div>
+            <div class="step-name">الاختيار والدفع</div>
+            <div class="step-desc">يختار ويدفع</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--green)">8</div>
+            <div class="step-name">المتابعة</div>
+            <div class="step-desc">زيارات سابقة وقادمة</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live-in Panel -->
+    <div id="panel-livein" class="service-panel" role="tabpanel" aria-labelledby="tab-livein">
+      <div class="service-header blue-hd">
+        <span class="service-badge badge-blue">خدمة ٢</span>
+        <div>
+          <div class="service-name">🏠 خدمة المقيم — Live-in</div>
+          <div class="service-desc">موجهة للعميل الذي يحتاج عامل مقيم لفترة مؤقتة بدون استقدامه على كفالته الشخصية.</div>
+          <div class="service-example"><strong>مثال:</strong> عميل يحتاج سائق لمدة 5 أو 6 شهور — العامل على كفالة المكتب، والعميل يدفع شهريًا.</div>
+        </div>
+      </div>
+      <div class="service-body">
+        <div class="steps-label">فلو خدمة المقيم</div>
+        <div class="stepper-h" role="list">
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">1</div>
+            <div class="step-name">اختيار المقيم</div>
+            <div class="step-desc">يختار الخدمة</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">2</div>
+            <div class="step-name">نوع العامل</div>
+            <div class="step-desc">سائق / عاملة</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">3</div>
+            <div class="step-name">المدة</div>
+            <div class="step-desc">والمواصفات</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">4</div>
+            <div class="step-name">عروض المكاتب</div>
+            <div class="step-desc">العمال المتاحون</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">5</div>
+            <div class="step-name">المقارنة</div>
+            <div class="step-desc">السعر والتقييم</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">6</div>
+            <div class="step-name">الاختيار</div>
+            <div class="step-desc">العرض الأنسب</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">7</div>
+            <div class="step-name">دفع شهري</div>
+            <div class="step-desc">المكتب يدير الراتب</div>
+          </div>
+          <div class="step-h" role="listitem">
+            <div class="step-num" style="background:var(--blue)">8</div>
+            <div class="step-name">المتابعة</div>
+            <div class="step-desc">من الحساب</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recruitment Panel -->
+    <div id="panel-recruit" class="service-panel" role="tabpanel" aria-labelledby="tab-recruit">
+      <div class="service-header amber-hd">
+        <span class="service-badge badge-amber">خدمة ٣</span>
+        <div>
+          <div class="service-name">✈️ الاستقدام — Recruitment</div>
+          <div class="service-desc">موجهة للعميل الذي يريد استقدام عامل على كفالته الشخصية. جوكرز يساعد في الفهم والمتابعة دون استبدال الجهات الرسمية.</div>
+        </div>
+      </div>
+      <div class="service-body">
+        <div class="steps-label">فلو خدمة الاستقدام</div>
+        <div class="stepper-v" role="list" style="max-width:600px">
+          <div class="step-v" role="listitem">
+            <div class="step-num" style="background:var(--amber)">1</div>
+            <div class="step-v-content">
+              <div class="step-v-name">اختيار الاستقدام</div>
+              <div class="step-v-desc">يحدد المهنة والجنسية والمواصفات المطلوبة.</div>
+            </div>
+          </div>
+          <div class="step-v" role="listitem">
+            <div class="step-num" style="background:var(--amber)">2</div>
+            <div class="step-v-content">
+              <div class="step-v-name">السير الذاتية والعروض</div>
+              <div class="step-v-desc">تظهر سير العمال أو عروض المكاتب المتاحة.</div>
+            </div>
+          </div>
+          <div class="step-v" role="listitem">
+            <div class="step-num" style="background:var(--amber)">3</div>
+            <div class="step-v-content">
+              <div class="step-v-name">اختيار العامل أو المكتب</div>
+              <div class="step-v-desc">يتم توجيه العميل لاستخراج التأشيرة من مساند.</div>
+            </div>
+          </div>
+          <div class="step-v" role="listitem">
+            <div class="step-num" style="background:var(--amber)">4</div>
+            <div class="step-v-content">
+              <div class="step-v-name">رفع التأشيرة</div>
+              <div class="step-v-desc">العميل يرفع رقم التأشيرة داخل جوكرز.</div>
+            </div>
+          </div>
+          <div class="step-v" role="listitem">
+            <div class="step-num" style="background:var(--amber)">5</div>
+            <div class="step-v-content">
+              <div class="step-v-name">مراجعة المكتب</div>
+              <div class="step-v-desc">المكتب يراجع البيانات ويبدأ متابعة إجراءات الاستقدام.</div>
+            </div>
+          </div>
+          <div class="step-v" role="listitem">
+            <div class="step-num" style="background:var(--amber)">6</div>
+            <div class="step-v-content">
+              <div class="step-v-name">تحديثات الفلو</div>
+              <div class="step-v-desc">المكتب يحدث الحالة — العميل يرى كل خطوة من حسابه.</div>
+            </div>
+          </div>
+          <div class="step-v" role="listitem">
+            <div class="step-num" style="background:var(--amber)">7</div>
+            <div class="step-v-content">
+              <div class="step-v-name">وصول العامل</div>
+              <div class="step-v-desc">يظهر بروفايل العامل داخل حساب العميل مع بياناته والفواتير.</div>
+            </div>
+          </div>
+        </div>
+        <div class="note-callout">
+          <span class="note-icon">ℹ️</span>
+          جوكرز في الاستقدام يعمل كطبقة تنظيم ومتابعة بين العميل والمكتب — ولا يستبدل المنصات الرسمية.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ مكونات النظام ══════════ -->
+<section id="system" aria-labelledby="system-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag" style="color:#4ade80">البنية التقنية</div>
+      <h2 id="system-title" class="section-title" style="color:white">مكونات <span style="color:var(--green)">النظام</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub" style="color:rgba(255,255,255,.65)">جوكرز مكوّن من أكثر من واجهة، لأن كل طرف في المنظومة له دور مختلف واحتياجات مختلفة.</p>
+    </div>
+    <div class="sys-grid">
+      <div class="sys-card reveal delay-1">
+        <span class="sys-emoji">🛡️</span>
+        <div class="sys-title">Super Admin Dashboard</div>
+        <div class="sys-desc">لوحة التحكم الرئيسية لفريق جوكرز — إدارة شاملة للمنصة.</div>
+        <ul class="sys-list">
+          <li>إدارة المكاتب والشركات</li>
+          <li>إدارة العملاء</li>
+          <li>متابعة الطلبات والمدفوعات</li>
+          <li>التقارير والتحليلات</li>
+        </ul>
+      </div>
+      <div class="sys-card reveal delay-2">
+        <span class="sys-emoji">🏢</span>
+        <div class="sys-title">White Label للمكاتب</div>
+        <div class="sys-desc">نظام خاص يساعد المكتب على إدارة عملياتهم اليومية.</div>
+        <ul class="sys-list">
+          <li>إدارة الطلبات والعروض</li>
+          <li>إدارة العمال والسير الذاتية</li>
+          <li>تحديد الأسعار</li>
+          <li>متابعة الاستقدام</li>
+        </ul>
+      </div>
+      <div class="sys-card reveal delay-3">
+        <span class="sys-emoji">🌐</span>
+        <div class="sys-title">Portal للوكالات التابعة</div>
+        <div class="sys-desc">بوابة للوكالات الخارجية التابعة للمكاتب لتجهيز العمال.</div>
+        <ul class="sys-list">
+          <li>إضافة بيانات العمال</li>
+          <li>رفع المستندات</li>
+          <li>تحديث حالة العامل</li>
+          <li>التنسيق مع المكتب</li>
+        </ul>
+      </div>
+      <div class="sys-card reveal delay-4">
+        <span class="sys-emoji">🔗</span>
+        <div class="sys-title">White Label مستقل للوكالات</div>
+        <div class="sys-desc">نظام مستقل للوكالات التي تحتاج إدارة عملياتها الخاصة.</div>
+        <ul class="sys-list">
+          <li>إدارة العمال</li>
+          <li>إدارة المستندات</li>
+          <li>إدارة العملاء والشركاء</li>
+        </ul>
+      </div>
+      <div class="sys-card reveal delay-5">
+        <span class="sys-emoji">📱</span>
+        <div class="sys-title">End User Mobile & Web App</div>
+        <div class="sys-desc">واجهة العميل النهائي لطلب الخدمات والمتابعة.</div>
+        <ul class="sys-list">
+          <li>طلب الخدمات الثلاث</li>
+          <li>مقارنة العروض</li>
+          <li>الدفع والمتابعة</li>
+          <li>بروفايل العامل</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ رحلة العميل ══════════ -->
+<section id="customer-flow" aria-labelledby="cf-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">رحلة العميل</div>
+      <h2 id="cf-title" class="section-title">رحلة العميل داخل <span class="accent">JOKRS</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">من أول لحظة يفتح فيها التطبيق حتى يتابع الخدمة — الفلو الكامل.</p>
+    </div>
+    <div class="journey-grid reveal delay-1" role="list">
+      <div class="journey-step" role="listitem"><div class="journey-num">١</div><div class="journey-name">دخول التطبيق</div><div class="journey-sub">الموبايل أو الويب</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٢</div><div class="journey-name">اختيار الخدمة</div><div class="journey-sub">ساعة / مقيم / استقدام</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٣</div><div class="journey-name">إدخال البيانات</div><div class="journey-sub">الفورم حسب الخدمة</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٤</div><div class="journey-name">إرسال الطلب</div><div class="journey-sub">يصل للمكاتب</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٥</div><div class="journey-name">استقبال العروض</div><div class="journey-sub">المكاتب تقدم عروضها</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٦</div><div class="journey-name">المقارنة</div><div class="journey-sub">السعر والتقييم</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٧</div><div class="journey-name">الاختيار</div><div class="journey-sub">العرض الأنسب</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٨</div><div class="journey-name">الدفع</div><div class="journey-sub">حسب نوع الخدمة</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">٩</div><div class="journey-name">التتبع</div><div class="journey-sub">حالة الطلب</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num">١٠</div><div class="journey-name">التقييم</div><div class="journey-sub">سجل الخدمة</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ رحلة المكتب ══════════ -->
+<section id="office-flow" aria-labelledby="of-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">رحلة المكتب</div>
+      <h2 id="of-title" class="section-title">رحلة المكتب داخل <span class="accent">JOKRS</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">المكتب يستخدم White Label لإدارة الخدمات والطلبات بدل الاعتماد على عمليات غير منظمة.</p>
+    </div>
+    <div class="journey-grid reveal delay-1" style="grid-template-columns:repeat(4,1fr)" role="list">
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">١</div><div class="journey-name">دخول النظام</div><div class="journey-sub">White Label الخاص</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">٢</div><div class="journey-name">إضافة الخدمات</div><div class="journey-sub">وتحديد الأسعار</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">٣</div><div class="journey-name">إضافة العمال</div><div class="journey-sub">السير الذاتية</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">٤</div><div class="journey-name">استقبال الطلبات</div><div class="journey-sub">من العملاء</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">٥</div><div class="journey-name">تقديم العرض</div><div class="journey-sub">للعميل المناسب</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">٦</div><div class="journey-name">متابعة الطلب</div><div class="journey-sub">بعد القبول</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">٧</div><div class="journey-name">تحديث الخطوات</div><div class="journey-sub">داخل النظام</div></div>
+      <div class="journey-step" role="listitem"><div class="journey-num" style="border-color:rgba(30,74,118,.25);color:var(--ink-soft)">٨</div><div class="journey-name">المدفوعات</div><div class="journey-sub">والتقارير</div></div>
+    </div>
+    <div class="note-callout reveal delay-2" style="max-width:700px;margin-top:32px">
+      <span class="note-icon">💡</span>
+      هذا النظام يساعد المكاتب الصغيرة على تنظيم عملياتها والتحول لتشغيل رقمي أوضح.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ رحلة الوكالة ══════════ -->
+<section id="agency-flow" aria-labelledby="af-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">رحلة الوكالة</div>
+      <h2 id="af-title" class="section-title">رحلة الوكالة <span class="accent">الخارجية</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">الوكالة تجهز بيانات العامل ومستنداته قبل وصوله للسعودية.</p>
+    </div>
+    <div class="agency-grid">
+      <div class="ag-card reveal delay-1"><div class="ag-num">١</div><div><div class="ag-title">دخول البوابة</div><div class="ag-desc">الوكالة تدخل على البوابة الخاصة بها.</div></div></div>
+      <div class="ag-card reveal delay-2"><div class="ag-num">٢</div><div><div class="ag-title">إضافة العمال</div><div class="ag-desc">إضافة بيانات العمال الكاملة.</div></div></div>
+      <div class="ag-card reveal delay-3"><div class="ag-num">٣</div><div><div class="ag-title">رفع المستندات</div><div class="ag-desc">المستندات المطلوبة لكل عامل.</div></div></div>
+      <div class="ag-card reveal delay-1" style="border-color:#bfdbfe"><div class="ag-num" style="background:var(--blue-pale);color:var(--blue)">٤</div><div><div class="ag-title">تحديث الحالة</div><div class="ag-desc">تحديث حالة العامل ومتابعة التجهيز.</div></div></div>
+      <div class="ag-card reveal delay-2" style="border-color:#bfdbfe"><div class="ag-num" style="background:var(--blue-pale);color:var(--blue)">٥</div><div><div class="ag-title">التنسيق</div><div class="ag-desc">التنسيق مع مكتب الاستقدام في السعودية.</div></div></div>
+      <div class="ag-card reveal delay-3"><div class="ag-num">٦</div><div><div class="ag-title">العميل يرى النتيجة</div><div class="ag-desc">العميل يرى الحالة النهائية من خلال جوكرز.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ كيف تعمل المنظومة ══════════ -->
+<section id="how" aria-labelledby="how-title">
+  <div class="section-inner">
+    <div class="eco-grid">
+      <div>
+        <div class="reveal">
+          <div class="label-tag" style="color:#4ade80">المنظومة</div>
+          <h2 id="how-title" class="section-title" style="color:white">كيف تعمل منظومة <span style="color:var(--green)">JOKRS</span>؟</h2>
+          <div class="divider-line"></div>
+          <p class="section-sub" style="color:rgba(255,255,255,.65)">كل طرف يدخل من الواجهة المناسبة له، لكن كل التحديثات تصب في نفس المنظومة.</p>
+        </div>
+        <div class="eco-desc reveal delay-2">
+          العميل يرى النتيجة بشكل مبسط، والمكتب يدير التشغيل، والوكالة تحدث بيانات العامل، وجوكرز يراقب ويدير المنصة بالكامل.
+        </div>
+      </div>
+      <div class="ecosystem-flow reveal delay-2" role="img" aria-label="هيكل منظومة جوكرز">
+        <div class="eco-node highlight-node">📱 End User App</div>
+        <div class="eco-arrow-down" aria-hidden="true">↓</div>
+        <div class="eco-node main-node">⚡ JOKRS Platform</div>
+        <div class="eco-arrow-down" aria-hidden="true">↓</div>
+        <div class="eco-node secondary-node">🛡️ Super Admin Dashboard</div>
+        <div class="eco-arrow-down" aria-hidden="true">↓</div>
+        <div class="eco-node secondary-node">🏢 Saudi Office White Label</div>
+        <div class="eco-arrow-down" aria-hidden="true">↓</div>
+        <div class="eco-node secondary-node">🌐 External Agency Portal</div>
+        <div class="eco-arrow-down" aria-hidden="true">↓</div>
+        <div class="eco-node amber-node">👷 Worker Data & Updates</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ MVP ══════════ -->
+<section id="mvp" aria-labelledby="mvp-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">المرحلة الأولى</div>
+      <h2 id="mvp-title" class="section-title">هدف المرحلة الأولى — <span class="accent">MVP</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">بناء نسخة أولى تثبت القيمة الأساسية للمنصة.</p>
+    </div>
+    <div class="mvp-grid">
+      <div class="mvp-item reveal delay-1"><div class="mvp-check">✓</div><div class="mvp-text">تطبيق أو ويب للعميل النهائي</div></div>
+      <div class="mvp-item reveal delay-2"><div class="mvp-check">✓</div><div class="mvp-text">Super Admin Dashboard</div></div>
+      <div class="mvp-item reveal delay-3"><div class="mvp-check">✓</div><div class="mvp-text">White Label للمكاتب</div></div>
+      <div class="mvp-item reveal delay-1"><div class="mvp-check">✓</div><div class="mvp-text">إدارة الخدمات الثلاث</div></div>
+      <div class="mvp-item reveal delay-2"><div class="mvp-check">✓</div><div class="mvp-text">إدارة الطلبات والعروض</div></div>
+      <div class="mvp-item reveal delay-3"><div class="mvp-check">✓</div><div class="mvp-text">تتبع حالة الطلب</div></div>
+      <div class="mvp-item reveal delay-1"><div class="mvp-check">✓</div><div class="mvp-text">إدارة السير الذاتية</div></div>
+      <div class="mvp-item reveal delay-2"><div class="mvp-check">✓</div><div class="mvp-text">الدفع أو تسجيل حالة الدفع</div></div>
+      <div class="mvp-item reveal delay-3"><div class="mvp-check">✓</div><div class="mvp-text">تحديثات الفلو بين العميل والمكتب</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CLOSING P1 ══════════ -->
+<section id="closing" aria-labelledby="closing-title">
+  <div class="section-inner closing-content" style="width:100%">
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div class="reveal">
+        <div class="label-tag" style="color:#4ade80;justify-content:center">الخلاصة</div>
+        <h2 id="closing-title" class="section-title" style="color:white;text-align:center">JOKRS <span style="color:var(--green)">Platform</span></h2>
+        <div class="divider-line" style="margin:0 auto 24px"></div>
+        <p style="font-size:1rem;color:rgba(255,255,255,.65);max-width:580px;line-height:1.9;margin-bottom:12px;text-align:center">جوكرز هو منظومة تجمع العميل، مكاتب وشركات العمالة المنزلية، والوكالات الخارجية في منصة واحدة منظمة.</p>
+        <p style="font-size:.9rem;color:rgba(255,255,255,.4);max-width:540px;line-height:1.85;text-align:center">الهدف هو تبسيط تجربة العميل، وتنظيم تشغيل المكاتب، وربط كل الأطراف في فلو واضح قابل للتنفيذ والتوسع.</p>
+        <div style="display:flex;justify-content:center">
+          <a href="#regulatory" class="cta-btn">⚖️ الأنظمة والإطار التنظيمي ←</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ PAGE SEPARATOR ══════════ -->
+<div class="page-sep" aria-hidden="true"></div>
+
+<!-- ════════════════════════════════════
+     PAGE 2 — الأنظمة والإطار التنظيمي
+════════════════════════════════════ -->
+
+<!-- P2 HERO -->
+<section id="regulatory" aria-labelledby="reg-title">
+  <div class="section-inner reg-hero-content" style="width:100%;display:flex;flex-direction:column;align-items:center">
+    <div class="p2-tag">الصفحة الثانية</div>
+    <div class="reveal">
+      <div class="label-tag" style="color:#4ade80;justify-content:center">الأنظمة الرسمية والإطار التنظيمي</div>
+      <h2 id="reg-title" class="section-title" style="color:white;text-align:center">الأنظمة الرسمية والإطار التنظيمي</h2>
+      <div class="divider-line" style="margin:0 auto 24px"></div>
+      <p class="section-sub" style="color:rgba(255,255,255,.65);text-align:center;margin:0 auto 20px">
+        جوكرز يعمل داخل سوق منظم، لذلك يجب أن يكون واضحًا ما هي الأنظمة المرتبطة بنا، وما هو دورنا القانوني والتشغيلي.<br>
+        جوكرز ليس جهة حكومية ولا بديلًا للمنصات الرسمية.
+      </p>
+      <div style="display:flex;justify-content:center">
+        <div class="p2-highlight">
+          جوكرز = <span class="green-text">وسيط رقمي</span> + <span class="green-text">منصة تقنية</span> + <span class="green-text">طبقة تنظيم ومتابعة</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- P2: الأنظمة الرسمية -->
+<section id="gov-systems" aria-labelledby="gov-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">العلاقة مع الجهات والأنظمة</div>
+      <h2 id="gov-title" class="section-title">الأنظمة الرسمية <span class="accent">المرتبطة بنا</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">جوكرز يعمل حول منظومة قائمة بالفعل، لذلك يجب توضيح أين تبدأ مهمة المنصة وأين تبقى الإجراءات داخل الجهات الرسمية.</p>
+    </div>
+    <div class="gov-grid">
+
+      <div class="gov-card reveal delay-1">
+        <div class="gov-head">
+          <div class="gov-icon" style="background:#e0f2fe">🏛️</div>
+          <div><div class="gov-name">مساند</div><div class="gov-what">منصة وطنية لخدمات العمالة المنزلية في السعودية</div></div>
+        </div>
+        <div class="gov-body">
+          <ul class="gov-roles">
+            <li>استقدام العمالة المنزلية</li>
+            <li>عرض السير الذاتية</li>
+            <li>التعامل مع مكاتب وشركات الاستقدام المرخصة</li>
+            <li>توثيق العلاقة التعاقدية في الاستقدام</li>
+          </ul>
+          <div class="rel-label">علاقة جوكرز بمساند</div>
+          <ul class="rel-list">
+            <li><span class="ri-yes">✓</span> جوكرز يوجه العميل للفلو الصحيح</li>
+            <li><span class="ri-yes">✓</span> جوكرز يساعد العميل على المتابعة</li>
+            <li><span class="ri-yes">✓</span> الإجراءات الرسمية تبقى داخل مساند</li>
+            <li><span class="ri-no">✗</span> جوكرز لا يستبدل مساند</li>
+          </ul>
+          <div class="key-box" style="background:var(--ink-soft)">مساند هي المرجع الرسمي في رحلة الاستقدام</div>
+        </div>
+      </div>
+
+      <div class="gov-card reveal delay-2">
+        <div class="gov-head">
+          <div class="gov-icon" style="background:#ecfccb">🏢</div>
+          <div><div class="gov-name">مكاتب وشركات الاستقدام المرخصة</div><div class="gov-what">الجهات المرخصة التي تقدم خدمات العمالة المنزلية والاستقدام</div></div>
+        </div>
+        <div class="gov-body">
+          <ul class="gov-roles">
+            <li>تقديم عروض للعميل</li>
+            <li>إدارة العمال والسير الذاتية</li>
+            <li>متابعة إجراءات الاستقدام</li>
+            <li>تقديم خدمات الساعة أو المقيم</li>
+          </ul>
+          <div class="rel-label">علاقتهم بجوكرز</div>
+          <ul class="rel-list">
+            <li><span class="ri-yes">✓</span> هم مقدمو الخدمة داخل المنصة</li>
+            <li><span class="ri-yes">✓</span> جوكرز يربطهم بالعميل</li>
+            <li><span class="ri-yes">✓</span> جوكرز يوفر لهم نظامًا مخصصًا</li>
+          </ul>
+          <div class="gov-note">جوكرز هنا يعمل كطبقة تنظيم وعرض ومتابعة، بينما الخدمة نفسها يقدمها المكتب أو الشركة المرخصة.</div>
+        </div>
+      </div>
+
+      <div class="gov-card reveal delay-1">
+        <div class="gov-head">
+          <div class="gov-icon" style="background:#f0fdf4">💳</div>
+          <div><div class="gov-name">سداد</div><div class="gov-what">نظام مركزي لعرض ودفع الفواتير إلكترونيًا في السعودية</div></div>
+        </div>
+        <div class="gov-body">
+          <ul class="gov-roles">
+            <li>دفع بعض الرسوم الحكومية</li>
+            <li>دفع الفواتير من خلال البنوك والمحافظ</li>
+          </ul>
+          <div class="rel-label">علاقة جوكرز بسداد</div>
+          <ul class="rel-list">
+            <li><span class="ri-yes">✓</span> جوكرز قد يوجه العميل للدفع عبر القنوات الرسمية</li>
+            <li><span class="ri-yes">✓</span> أي تكامل مباشر يحتاج مسار رسمي</li>
+            <li><span class="ri-no">✗</span> جوكرز لا يستبدل سداد</li>
+          </ul>
+          <div class="key-box" style="background:var(--green)">سداد قناة دفع رسمية، وليس بديلًا تشغيليًا داخل جوكرز</div>
+        </div>
+      </div>
+
+      <div class="gov-card reveal delay-2">
+        <div class="gov-head">
+          <div class="gov-icon" style="background:#fdf4ff">🪪</div>
+          <div><div class="gov-name">أبشر</div><div class="gov-what">منصة خدمات وزارة الداخلية للأفراد والمقيمين</div></div>
+        </div>
+        <div class="gov-body">
+          <ul class="gov-roles">
+            <li>خدمات ما بعد وصول العامل</li>
+            <li>إصدار أو تجديد هوية مقيم</li>
+            <li>خدمات الجوازات والإقامة</li>
+          </ul>
+          <div class="rel-label">علاقة جوكرز بأبشر</div>
+          <ul class="rel-list">
+            <li><span class="ri-yes">✓</span> جوكرز يوضح للعميل الخطوات بعد وصول العامل</li>
+            <li><span class="ri-yes">✓</span> الإجراءات الرسمية تتم من خلال أبشر</li>
+            <li><span class="ri-no">✗</span> جوكرز لا يقوم بالإجراء بدل العميل</li>
+          </ul>
+          <div class="key-box" style="background:#7c3aed">أبشر يبقى مسار الخدمات الرسمية بعد الوصول</div>
+        </div>
+      </div>
+
+      <div class="gov-card reveal delay-1" style="grid-column:1/-1;max-width:580px">
+        <div class="gov-head">
+          <div class="gov-icon" style="background:#fff7ed">🔐</div>
+          <div><div class="gov-name">نفاذ</div><div class="gov-what">خدمة تحقق وهوية رقمية للدخول إلى الخدمات الحكومية</div></div>
+        </div>
+        <div class="gov-body">
+          <ul class="gov-roles">
+            <li>التحقق من هوية المستخدم</li>
+            <li>تسجيل الدخول الموحد لبعض الخدمات</li>
+          </ul>
+          <div class="rel-label">علاقة جوكرز بنفاذ</div>
+          <ul class="rel-list">
+            <li><span class="ri-yes">✓</span> يمكن استخدامه كخيار تحقق مستقبلي</li>
+            <li><span class="ri-yes">✓</span> يساعد في رفع الثقة وتقليل الحسابات غير الموثوقة</li>
+          </ul>
+          <div class="key-box" style="background:#059669">نفاذ يعزز التحقق والثقة إذا تم استخدامه ضمن مسار رسمي مناسب</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- P2: الموقع القانوني -->
+<section id="positioning" aria-labelledby="pos-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">توصيف الدور</div>
+      <h2 id="pos-title" class="section-title">ما هو موقع جوكرز <span class="accent">قانونيًا</span>؟</h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">الأهم هو التفريق بين ما يديره جوكرز تقنيًا وما يتم رسميًا عبر الجهة المختصة أو مقدم الخدمة المرخص.</p>
+    </div>
+    <div class="pos-grid">
+      <div class="pos-box is-box reveal delay-1">
+        <div class="pos-title">✅ جوكرز هو</div>
+        <ul class="pos-list">
+          <li>✓ وسيط رقمي بين العميل ومقدمي الخدمة</li>
+          <li>✓ منصة تقنية لإدارة الطلبات والمتابعة</li>
+          <li>✓ منصة عرض للخدمات والعروض</li>
+          <li>✓ نظام مخصص للمكاتب والشركات</li>
+        </ul>
+      </div>
+      <div class="pos-box not-box reveal delay-2">
+        <div class="pos-title">✗ جوكرز ليس</div>
+        <ul class="pos-list">
+          <li>✗ ليس جهة حكومية</li>
+          <li>✗ ليس منصة إصدار تأشيرات</li>
+          <li>✗ ليس مكتب استقدام إلا بترخيص مستقل</li>
+          <li>✗ لا يوثق عقود الاستقدام بدل مساند</li>
+          <li>✗ لا ينفذ إجراءات أبشر أو سداد بدون تفويض رسمي</li>
+        </ul>
+      </div>
+      <div class="pos-note reveal">
+        <span class="pos-note-icon">📌</span>
+        <div>طالما جوكرز لا يمارس نشاط الاستقدام بنفسه ولا يصدر عقودًا أو تأشيرات، فهو أقرب إلى منصة تقنية ووسيط رقمي. أما إذا بدأ في تقديم خدمة الاستقدام بنفسه أو تحصيلها أو التعاقد عليها كمقدم خدمة، فيجب مراجعة ترخيص نشاط الاستقدام وقواعد وزارة الموارد البشرية.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- P2: اللوائح -->
+<section id="legal" aria-labelledby="legal-title">
+  <div class="section-inner">
+    <div class="reveal" style="position:relative;z-index:1">
+      <div class="label-tag" style="color:#4ade80">مراجعة تنظيمية</div>
+      <h2 id="legal-title" class="section-title" style="color:white">اللوائح والأنظمة التي يجب <span style="color:var(--green)">مراجعتها</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub" style="color:rgba(255,255,255,.65)">هذه النقاط ليست رأيًا قانونيًا، لكنها توضح أين تتركز المتطلبات التنظيمية حول نموذج عمل جوكرز.</p>
+    </div>
+    <div class="legal-grid-2x2">
+      <div class="legal-card reveal delay-1">
+        <div class="legal-head">
+          <div class="legal-icon">📘</div>
+          <div class="legal-title">قواعد ممارسة نشاط الاستقدام وتقديم الخدمات العمالية</div>
+        </div>
+        <div class="legal-sub-label">لماذا تهم؟</div>
+        <div class="legal-text">لأنها تنظم شركات ومكاتب الاستقدام والأنشطة المرتبطة بتقديم الخدمات العمالية.</div>
+        <div class="legal-sub-label">أثرها على جوكرز</div>
+        <div class="legal-text">مهمة إذا كانت المنصة ستتعامل مع مكاتب مرخصة أو ستقدم خدمات قريبة من نشاط الاستقدام.</div>
+      </div>
+      <div class="legal-card reveal delay-2">
+        <div class="legal-head">
+          <div class="legal-icon">👨‍👩‍👧</div>
+          <div class="legal-title">لائحة العمالة المنزلية ومن في حكمهم</div>
+        </div>
+        <div class="legal-sub-label">لماذا تهم؟</div>
+        <div class="legal-text">لأنها تنظم علاقة صاحب العمل والعامل المنزلي والحقوق والالتزامات.</div>
+        <div class="legal-sub-label">أثرها على جوكرز</div>
+        <div class="legal-text">مهمة لفهم حدود الخدمة، الراتب، الإجازات، العقد، والمسؤوليات بعد وصول العامل.</div>
+      </div>
+      <div class="legal-card reveal delay-1">
+        <div class="legal-head">
+          <div class="legal-icon">🛒</div>
+          <div class="legal-title">نظام التجارة الإلكترونية ولائحته التنفيذية</div>
+        </div>
+        <div class="legal-sub-label">لماذا تهم؟</div>
+        <div class="legal-text">لأن جوكرز يقدم خدمات رقمية عبر تطبيق أو ويب ويعرض خدمات ويستقبل طلبات ومدفوعات.</div>
+        <div class="legal-sub-label">أثرها على جوكرز</div>
+        <div class="legal-text">يجب توضيح بيانات المنصة، شروط الخدمة، سياسة الإلغاء والاسترجاع، وحماية المستهلك.</div>
+      </div>
+      <div class="legal-card reveal delay-2">
+        <div class="legal-head">
+          <div class="legal-icon">🛡️</div>
+          <div class="legal-title">أنظمة المدفوعات وحماية بيانات المستخدم</div>
+        </div>
+        <div class="legal-sub-label">لماذا تهم؟</div>
+        <div class="legal-text">لأن جوكرز سيتعامل مع مدفوعات وبيانات عملاء وعمال ومكاتب.</div>
+        <div class="legal-sub-label">أثرها على جوكرز</div>
+        <div class="legal-text">يجب استخدام مزودي دفع معتمدين، وحماية البيانات، وتوضيح سياسة الخصوصية.</div>
+      </div>
+    </div>
+
+    <!-- Visa Pre-check Card -->
+    <div class="visa-card reveal delay-2">
+      <div class="visa-head">
+        <div class="visa-icon">✅</div>
+        <div>
+          <div class="visa-title">التحقق المبدئي من أهلية إصدار التأشيرة</div>
+          <div class="visa-sub">يستطيع JOKRS بناء مسار ذكي للتقييم المبدئي قبل أن يبدأ العميل رحلة الاستقدام، بحيث يجمع البيانات المطلوبة أثناء التسجيل ثم يطبق عليها محرك قواعد داخلي لإعطاء صورة أولية واضحة.</div>
+        </div>
+      </div>
+      <div class="visa-flow">
+        <div class="visa-pane">
+          <div class="visa-pane-title">التسجيل والتهيئة داخل المنصة</div>
+          <ul class="visa-list">
+            <li>الاسم الكامل، رقم الجوال، رقم الهوية / الإقامة، تاريخ الميلاد، الجنسية.</li>
+            <li>الحالة الاجتماعية، عدد أفراد الأسرة، نطاق الدخل الشهري، نوع العمل.</li>
+            <li>عدد العمالة المنزلية الحالية، المهنة المطلوبة للعامل، المدينة / المنطقة.</li>
+          </ul>
+          <div class="visa-step">
+            <div class="visa-step-num">1</div>
+            <div class="visa-step-text">يدخل العميل بياناته عبر نموذج ذكي أثناء التسجيل أو بدء الطلب.</div>
+          </div>
+          <div class="visa-step">
+            <div class="visa-step-num">2</div>
+            <div class="visa-step-text">يستخدم JOKRS هذه البيانات لتشغيل محرك قواعد داخلي خاص بالأهلية وإنتاج تقييم مبدئي.</div>
+          </div>
+          <div class="visa-step">
+            <div class="visa-step-num">3</div>
+            <div class="visa-step-text">تظهر النتيجة مع تفسير مبسط يساعد العميل على فهم وضعه قبل الانتقال للإجراءات الرسمية.</div>
+          </div>
+        </div>
+        <div class="visa-pane">
+          <div class="visa-pane-title">نتيجة التقييم المبدئي</div>
+          <div class="visa-status-grid">
+            <div class="vs eligible">
+              <strong>مؤهل مبدئيًا</strong>
+              <span>البيانات المدخلة تبدو متوافقة مبدئيًا مع القواعد المعتمدة داخل المنصة.</span>
+            </div>
+            <div class="vs review">
+              <strong>يحتاج مراجعة</strong>
+              <span>بعض العناصر تحتاج توضيحًا أو استكمالًا قبل إعطاء صورة أدق.</span>
+            </div>
+            <div class="vs ineligible">
+              <strong>غالبًا غير مؤهل حاليًا</strong>
+              <span>المعطيات تشير إلى أن الطلب قد يحتاج تعديلًا أو انتظار شروط إضافية.</span>
+            </div>
+          </div>
+          <div class="visa-pane-title" style="margin-top:16px;font-size:.82rem">أمثلة على أسباب النتيجة</div>
+          <div class="visa-reasons">
+            <div class="visa-reason">الدخل الشهري غير كافٍ حسب البيانات المدخلة.</div>
+            <div class="visa-reason">عدد العمالة الحالية قد يؤثر على الأهلية.</div>
+            <div class="visa-reason">نوع التأشيرة المطلوبة يحتاج مراجعة إضافية.</div>
+            <div class="visa-reason">البيانات غير مكتملة.</div>
+          </div>
+        </div>
+      </div>
+      <div class="visa-integration-note">
+        <ul class="visa-list">
+          <li>لا يوجد تكامل مباشر مع Absher في هذا المسار.</li>
+          <li>يمكن إضافة تكامل اختياري لاحقًا مع Nafath للمصادقة على الهوية.</li>
+          <li>يمكن إضافة تكامل اختياري لاحقًا مع Yakeen / Elm للتحقق من بيانات الهوية أو الإقامة.</li>
+          <li>هذه التكاملات تقتصر على التحقق من البيانات فقط، ولا تمنح موافقة نهائية على أهلية التأشيرة.</li>
+          <li>النتيجة داخل JOKRS تبقى تقييمًا مبدئيًا مبنيًا على بيانات العميل والقواعد القابلة للتهيئة.</li>
+        </ul>
+      </div>
+      <div class="visa-warning">
+        ⚠️ تنبيه مهم: نتيجة الأهلية داخل JOKRS هي تقييم مبدئي مبني على البيانات التي يدخلها العميل، ولا تعتبر موافقة رسمية على إصدار التأشيرة. القرار النهائي يتم فقط من خلال الجهات والمنصات الحكومية المختصة.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- P2: الصياغة الآمنة -->
+<section id="safe-positioning" aria-labelledby="safe-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">الرسالة المعتمدة</div>
+      <h2 id="safe-title" class="section-title">الصياغة الآمنة <span class="accent">لدور جوكرز</span></h2>
+      <div class="divider-line"></div>
+    </div>
+    <div class="statement-grid">
+      <div class="statement-box primary reveal delay-1">
+        جوكرز منصة تقنية وسيطة تربط العميل بمكاتب وشركات العمالة المنزلية المرخصة، وتساعد في تنظيم الطلبات والعروض والمتابعة. الإجراءات الرسمية مثل التأشيرات والعقود الحكومية والإقامة تتم من خلال المنصات الرسمية المختصة.
+      </div>
+      <div class="statement-box secondary reveal delay-2">
+        أي توسع في دور جوكرز ليصبح مقدم خدمة استقدام مباشر يحتاج مراجعة قانونية وترخيص مناسب من الجهة المختصة.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- P2: المتطلبات -->
+<section id="requirements" aria-labelledby="req-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">جاهزية التشغيل</div>
+      <h2 id="req-title" class="section-title">متطلبات يجب التأكد منها <span class="accent">قبل التشغيل</span></h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">قائمة عمل مختصرة تساعد الإدارة على ترتيب أولويات الجاهزية قبل الإطلاق أو قبل أي توسع في التكاملات.</p>
+    </div>
+    <div class="req-grid">
+      <div class="req-item reveal delay-1"><div class="req-icon">📄</div><div class="req-text">سجل تجاري مناسب لنشاط المنصة</div></div>
+      <div class="req-item reveal delay-2"><div class="req-icon">🌐</div><div class="req-text">توثيق المنصة الإلكترونية عبر منصة الأعمال</div></div>
+      <div class="req-item reveal delay-1"><div class="req-icon">📝</div><div class="req-text">شروط وأحكام واضحة للعميل والمكتب</div></div>
+      <div class="req-item reveal delay-2"><div class="req-icon">🔒</div><div class="req-text">سياسة خصوصية وحماية بيانات</div></div>
+      <div class="req-item reveal delay-1"><div class="req-icon">🏢</div><div class="req-text">التعامل فقط مع مكاتب وشركات مرخصة</div></div>
+      <div class="req-item reveal delay-2"><div class="req-icon">🚫</div><div class="req-text">عدم استخدام شعارات الجهات الحكومية بطريقة توحي بشراكة رسمية</div></div>
+      <div class="req-item reveal delay-1"><div class="req-icon">↗️</div><div class="req-text">توضيح أن الإجراءات الحكومية تتم خارج جوكرز</div></div>
+      <div class="req-item reveal delay-2"><div class="req-icon">💳</div><div class="req-text">استخدام مزود دفع معتمد</div></div>
+      <div class="req-item reveal delay-1"><div class="req-icon">💰</div><div class="req-text">توضيح العمولة والرسوم وسياسة الاسترجاع</div></div>
+      <div class="req-item reveal delay-2"><div class="req-icon">⚖️</div><div class="req-text">مراجعة قانونية قبل أي تكامل رسمي أو تحصيل رسوم حكومية</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- P2: التدفق التشغيلي -->
+<section id="integration" aria-labelledby="int-title">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="label-tag">التعامل التشغيلي</div>
+      <h2 id="int-title" class="section-title">كيف يتم التعامل مع <span class="accent">الأنظمة الرسمية</span>؟</h2>
+      <div class="divider-line"></div>
+      <p class="section-sub">الصورة المبسطة للإدارة: العميل يبدأ من جوكرز، والمكتب المرخص يتابع الخدمة، والمنصة الرسمية تنفذ الإجراء الحكومي.</p>
+    </div>
+    <div class="int-wrap reveal delay-1">
+      <div class="int-flow" role="img" aria-label="تدفق التعامل مع الأنظمة الرسمية">
+        <div class="int-node">
+          <div class="int-box user">العميل</div>
+          <div class="int-lbl">بداية الطلب</div>
+        </div>
+        <div class="int-arr" aria-hidden="true">→</div>
+        <div class="int-node">
+          <div class="int-box platform">جوكرز</div>
+          <div class="int-lbl">تنظيم وتوجيه</div>
+        </div>
+        <div class="int-arr" aria-hidden="true">→</div>
+        <div class="int-node">
+          <div class="int-box gov-box">المكتب المرخص</div>
+          <div class="int-lbl">تقديم الخدمة</div>
+        </div>
+        <div class="int-arr" aria-hidden="true">→</div>
+        <div class="int-node">
+          <div class="int-box gov-box">المنصة الرسمية</div>
+          <div class="int-lbl">الإجراء الحكومي</div>
+        </div>
+        <div class="int-arr" aria-hidden="true">→</div>
+        <div class="int-node">
+          <div class="int-box back-box">العودة للتتبع</div>
+          <div class="int-lbl">تحديث الحالة في جوكرز</div>
+        </div>
+      </div>
+      <p style="text-align:center;font-size:.84rem;color:var(--ink-muted);line-height:1.8;max-width:680px;margin:0 auto 24px">
+        العميل يبدأ الطلب من جوكرز، المكتب المرخص يتعامل مع الإجراءات حسب النظام، والإجراء الرسمي يتم في المنصة الحكومية المختصة، ثم يتم تحديث الحالة داخل جوكرز للمتابعة.
+      </p>
+      <div class="int-pillars">
+        <div class="int-pillar">
+          <div class="int-pillar-icon">🧭</div>
+          <div class="int-pillar-title">العميل يفهم الخطوات</div>
+        </div>
+        <div class="int-pillar">
+          <div class="int-pillar-icon">⚙️</div>
+          <div class="int-pillar-title">المكتب يدير التشغيل</div>
+        </div>
+        <div class="int-pillar">
+          <div class="int-pillar-icon">📍</div>
+          <div class="int-pillar-title">جوكرز يتابع وينظم</div>
+        </div>
+      </div>
+      <div class="int-note">المنصات الرسمية تبقى مصدر الإجراءات الحكومية، بينما يبقى جوكرز طبقة التجربة والتنظيم والمتابعة.</div>
+    </div>
+  </div>
+</section>
+
+<!-- P2 CLOSING -->
+<section class="p2-close" aria-labelledby="p2-close-title">
+  <div class="section-inner" style="display:flex;flex-direction:column;align-items:center;text-align:center;width:100%">
+    <div class="reveal">
+      <div class="label-tag" style="justify-content:center">الخلاصة</div>
+      <h2 id="p2-close-title" class="section-title">جوكرز يبني طبقة تنظيم فوق سوق <span class="accent">موجود بالفعل</span></h2>
+      <div class="divider-line" style="margin:0 auto 24px"></div>
+      <p class="section-sub" style="margin:0 auto 28px">جوكرز لا ينافس الأنظمة الرسمية. جوكرز يبني طبقة تنظيم وتجربة مستخدم فوق سوق موجود بالفعل.</p>
+      <div class="sum-pills">
+        <div class="sum-pill"><span class="sum-dot"></span>العميل يفهم الخطوات</div>
+        <div class="sum-pill"><span class="sum-dot"></span>المكتب يدير التشغيل</div>
+        <div class="sum-pill"><span class="sum-dot"></span>جوكرز يتابع وينظم</div>
+        <div class="sum-pill"><span class="sum-dot"></span>المنصات الرسمية تبقى مصدر الإجراءات الحكومية</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+   JAVASCRIPT
+═══════════════════════════════════════ -->
+<script>
+// ─── Scroll Progress Bar ───────────────────
+const progressBar = document.getElementById('progress-bar');
+function updateProgress() {
+  const scrolled = window.scrollY;
+  const total = document.documentElement.scrollHeight - window.innerHeight;
+  progressBar.style.transform = `scaleX(${scrolled / total})`;
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+
+// ─── Navbar Scroll State ───────────────────
+const nav = document.getElementById('nav');
+function updateNav() {
+  nav.classList.toggle('scrolled', window.scrollY > 40);
+}
+window.addEventListener('scroll', updateNav, { passive: true });
+updateNav();
+
+// ─── Mobile Menu Toggle ────────────────────
+const toggle = document.getElementById('nav-toggle');
+toggle.addEventListener('click', () => {
+  const open = nav.classList.toggle('menu-open');
+  toggle.setAttribute('aria-expanded', open);
+  toggle.textContent = open ? '✕' : '☰';
+});
+// close on link click
+document.querySelectorAll('.nav-links a').forEach(link => {
+  link.addEventListener('click', () => {
+    nav.classList.remove('menu-open');
+    toggle.setAttribute('aria-expanded', false);
+    toggle.textContent = '☰';
+  });
+});
+
+// ─── Scroll Reveal ─────────────────────────
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      revealObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ─── Active Nav Link ───────────────────────
+const sections = document.querySelectorAll('section[id]');
+const navLinks  = document.querySelectorAll('.nav-links a');
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === `#${e.target.id}`);
+      });
+    }
+  });
+}, { threshold: 0.4 });
+sections.forEach(s => sectionObserver.observe(s));
+
+// ─── Service Tabs ──────────────────────────
+function switchTab(id, btn) {
+  // hide all panels
+  document.querySelectorAll('.service-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.stab').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-selected', 'false');
+  });
+  // show selected
+  const panel = document.getElementById('panel-' + id);
+  if (panel) {
+    panel.classList.add('active');
+    // small animation
+    panel.style.opacity = 0;
+    panel.style.transform = 'translateY(8px)';
+    requestAnimationFrame(() => {
+      panel.style.transition = 'opacity .35s ease, transform .35s ease';
+      panel.style.opacity = 1;
+      panel.style.transform = 'none';
+    });
+  }
+  btn.classList.add('active');
+  btn.setAttribute('aria-selected', 'true');
+}
+
+// ─── Journey Step Highlight on Hover ───────
+document.querySelectorAll('.journey-step, .step-h').forEach(step => {
+  step.style.transition = 'transform .2s ease';
+  step.addEventListener('mouseenter', () => step.style.transform = 'translateY(-4px)');
+  step.addEventListener('mouseleave', () => step.style.transform = 'none');
+});
+</script>
+</body>
+</html>
