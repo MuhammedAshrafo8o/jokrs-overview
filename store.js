@@ -457,7 +457,7 @@
   /* Manual override: the office sets the final amount by hand            */
   /* ------------------------------------------------------------------ */
   var OVERRIDE_TYPES = ['cancel_visits', 'cancel_all_remaining', 'package_refund', 'no_show', 'quality_issue'];
-  function overridable(r) { return OVERRIDE_TYPES.indexOf(r.type) >= 0 || (r.type === 'exception_review' && OVERRIDE_TYPES.indexOf(r.baseType) >= 0); }
+  function overridable(r) { return OVERRIDE_TYPES.indexOf(r.type) >= 0 || (r.type === 'exception_review' && (!r.baseType || OVERRIDE_TYPES.indexOf(r.baseType) >= 0)); }
   /** Can an already-decided request still have its amount changed? Only while no money has moved. */
   function reopenable(o, r) {
     if (['approved', 'auto_approved'].indexOf(r.status) < 0 || !r.calc || !r.refundId) return false;

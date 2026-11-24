@@ -384,6 +384,8 @@
     try { const c = JK.calculate({ booking: b, platform: S.state.platform, req: { type: r.type, baseType: r.baseType, at: r.requestedAt, visitIds: r.visitIds, workerIds: r.workerIds, initiator: r.initiator, cause: r.cause, remedy: r.remedy, deliveredWorkerIds: r.deliveredWorkerIds, evidence: r.evidence, disputed: r.disputed, reasonCode: r.reasonCode, waiver: r.waiver, newStart: r.newStart, qualityAmount: r.qualityAmount } });
       return c.ok ? `<span class="muted small">متوقع</span> ${money(c.totalRefund)}` : '—'; } catch (e) { return '—'; }
   }
+  function canOverride(o, r) { return (['awaiting_review', 'info_requested'].includes(r.status) && JK.store.ops.overridable(r)) || JK.store.ops.reopenable(o, r); }
+  UI.canOverride = canOverride;
   UI.pages.requests = function () {
     const o = office(), f = UI.filters.requests;
     let list = o.requests.slice().sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt));
@@ -400,8 +402,9 @@
     const rows = list.map((r) => `<tr>
       <td><a href="#/requests/${h(r.id)}" class="strong">${h(r.ref)}</a></td><td>${h(r.bookingRef)}<div class="muted small">${h(L.bookingType[r.bookingType])}</div></td><td>${h(r.customerName)}</td>
       <td>${h(L.requestType[r.type])}${r.baseType ? `<div class="muted small">على: ${h(L.requestType[r.baseType])}</div>` : ''}</td><td>${reqBadge(r.status)}${r.disputed ? ' ' + badge('متنازع عليه', 'danger') : ''}</td>
-      <td>${dts(r.requestedAt)}</td><td>${h(L.initiator[r.initiator])} / ${h(L.cause[r.cause] || '—')}</td><td>${requestMoney(r, o)}</td></tr>`).join('');
+      <td>${dts(r.requestedAt)}</td><td>${h(L.initiator[r.initiator])} / ${h(L.cause[r.cause] || '—')}</td><td>${requestMoney(r, o)}${r.override && r.override.status !== 'withdrawn' ? '<div>' + badge(r.override.status === 'pending_customer' ? 'معدّل — بانتظار العميل' : 'معدّل يدوياً', r.override.status === 'pending_customer' ? 'warning' : 'info') + '</div>' : ''}</td><td>${canOverride(o, r) ? btn({ label: 'تعديل المبلغ', icon: 'edit', small: true, perm: 'request.review', act: 'rq-override', data: { id: r.id } }) : ''}</td></tr>`).join('');
     const active = Object.values(f).some(Boolean);
+    const nOv = list.filter((r) => canOverride(o, r)).length;
     return `${pageHead('طلبات الإلغاء والتعديل', 'طلبات العملاء وإجراءات المكتب. حالة الطلب منفصلة عن حالة الاسترداد المالي.', btn({ label: 'تسجيل إجراء من المكتب', icon: 'plus', kind: 'primary', perm: 'request.office', act: 'rq-office-new' }))}
       ${permNote(['request.review'])}
       <div class="filters" role="search">
@@ -415,8 +418,9 @@
         <label class="field-inline"><span>المرجع</span><input type="search" id="rf-ref" value="${h(f.ref || '')}" data-on-input="rq-filter" data-key="ref" placeholder="BK-… أو R-…" dir="ltr"></label>
         ${active ? `<button type="button" class="btn btn-ghost btn-sm" data-act="rq-clear">${ic('x')}<span>مسح الفلاتر</span></button>` : ''}
       </div>
+      ${nOv ? `<div class="note note-info ov-hint">${ic('edit')}<div><b>تعديل المبلغ يدوياً:</b> زر <b>تعديل المبلغ</b> بجانب الطلب يتيح لك تجاوز حساب السياسة وتحديد رسوم المكتب أو المبلغ المعاد للعميل بنفسك — حتى للطلبات المعتمدة آلياً من التطبيق ما دام الاسترداد لم يُصرف بعد (${nOv} طلب قابل للتعديل في هذه القائمة).</div></div>` : ''}
       <p class="muted small" aria-live="polite">${list.length} طلب</p>
-      <section class="card flush">${rows ? `<div class="table-wrap"><table class="tbl"><caption class="sr-only">الطلبات</caption><thead><tr><th>الطلب</th><th>الحجز</th><th>العميل</th><th>النوع</th><th>الحالة</th><th>وقت الطلب</th><th>المبادر / المسؤول</th><th>المبلغ</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      <section class="card flush">${rows ? `<div class="table-wrap"><table class="tbl"><caption class="sr-only">الطلبات</caption><thead><tr><th>الطلب</th><th>الحجز</th><th>العميل</th><th>النوع</th><th>الحالة</th><th>وقت الطلب</th><th>المبادر / المسؤول</th><th>المبلغ</th><th><span class="sr-only">إجراء</span></th></tr></thead><tbody>${rows}</tbody></table></div>`
         : empty('لا توجد طلبات مطابقة للفلاتر', 'غيّر الفلاتر أو امسحها لعرض كل الطلبات.', `<button class="btn btn-secondary" data-act="rq-clear">مسح الفلاتر</button>`)}</section>`;
   };
   UI.act['rq-filter'] = (el) => { UI.filters.requests[el.dataset.key] = el.value; render(); };
@@ -661,6 +665,7 @@
   }
   UI.act['rq-override'] = (el) => {
     const r = byId(office().requests, el.dataset.id);
+    if (!r) return;
     UI.ov = null; ovState(r);
     openModal({ title: 'تعديل المبلغ النهائي — ' + r.ref, size: 'md', body: ovBody, foot: ovFoot, onClose: () => { UI.ov = null; } });
   };

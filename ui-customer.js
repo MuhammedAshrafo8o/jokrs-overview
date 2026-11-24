@@ -461,6 +461,7 @@
         <li>احجز باقة ووافق على السياسة، ثم افتح <b>بوابة المكتب ← سجل النشاط</b> لترى الموافقة المسجلة.</li>
         <li>ألغِ زيارة وشاهد الرسوم والمبلغ المعاد قبل التأكيد، ثم تابع الاسترداد في <b>لوحة JOKRS</b>.</li>
         <li>اطلب تغيير موعد، ثم من بوابة المكتب اقترح موعداً بديلاً — وارجع هنا لقبوله أو رفضه.</li>
+        <li><b>تعديل المبلغ يدوياً:</b> ألغِ زيارة، ثم اضغط <b>عدّل مبلغ هذا الطلب كمكتب</b> في اللوحة الجانبية. إن رفعت الرسوم فوق السياسة، ارجع هنا لتوافق أو ترفض.</li>
         <li>غيّر <b>الوقت المحاكى</b> من الشريط العلوي لترى كيف تتغير الرسوم مع اقتراب الموعد.</li>
       </ul>
       <p class="muted small">الدفع والرسائل محاكاة فقط. لا توجد معاملات حقيقية.</p>
@@ -471,7 +472,13 @@
     const mine = (e) => bIds.includes(e.entityId) || rIds.includes(e.entityId) || fIds.includes(e.entityId) || bIds.some((id) => String(e.entityId).indexOf(id + '-') === 0);
     const ev = o.audit.filter(mine).slice(-12).reverse();
     const who = (e) => e.role === 'customer' ? ['العميل', 'info'] : e.role === 'platform' ? ['JOKRS', 'accent'] : e.role === 'system' ? ['آلي', 'muted'] : ['المكتب', 'warning'];
+    const last = myRequests().slice().sort((a, z) => Date.parse(z.createdAt) - Date.parse(a.createdAt))[0];
+    const canOv = last && UI.canOverride && UI.canOverride(o, last);
     return `<aside class="cx-side card cx-back" aria-label="خلف الكواليس">
+      ${last ? `<div class="cx-jump"><p class="small"><b>آخر طلب لهذا العميل:</b> <span dir="ltr">${h(last.ref)}</span> · ${h(L.requestType[last.type])} · ${badge(L.requestStatus[last.status], UI.TONES.req[last.status])}</p>
+        <div class="action-stack">${canOv ? `<button type="button" class="btn btn-primary btn-sm" data-act="cx-to-office" data-id="${h(last.id)}" data-ov="1">${ic('edit')}<span>عدّل مبلغ هذا الطلب كمكتب</span></button>` : ''}
+        <button type="button" class="btn btn-secondary btn-sm" data-act="cx-to-office" data-id="${h(last.id)}">${ic('building')}<span>افتح الطلب في بوابة المكتب</span></button></div>
+        ${canOv ? '<p class="muted small">ينقلك لبوابة المكتب ويفتح نافذة تحديد المبلغ النهائي يدوياً.</p>' : ''}</div>` : ''}
       <h2 class="h3">${ic('history')} خلف الكواليس</h2>
       <p class="muted small">ما يُسجَّل في سجل التدقيق لحجوزات هذا العميل — من أي واجهة.</p>
       ${ev.length ? `<ul class="cx-feed">${ev.map((e) => { const [l, t] = who(e); return `<li>${badge(l, t)}<div><b>${h(UI.ACTION_LABEL[e.action] || e.action)}</b><span class="muted small">${h(e.actor)} · <span dir="ltr">${h(e.entityId)}</span></span><time class="muted small">${h(JK.fmtDTs(e.at))}</time></div></li>`; }).join('')}</ul>` : '<p class="muted">لا أحداث بعد.</p>'}
@@ -562,6 +569,17 @@
       const go = () => cxRun('respondOverride', { requestId: el.dataset.id, accept, note: t ? t.value : '' }, accept ? 'وافقت على المبلغ المعدّل.' : 'رفضت المبلغ المعدّل؛ عاد الطلب لمراجعة المكتب.');
       if (accept) confirmDialog({ title: 'الموافقة على المبلغ المعدّل', body: '<p>بالموافقة يُطبق المبلغ الذي حدده المكتب بدلاً من حساب السياسة، ولا يمكن التراجع بعد التنفيذ.</p>', ok: 'موافق' }).then((y) => { if (y) go(); });
       else go();
+    },
+    'cx-to-office': (el) => {
+      const id = el.dataset.id, oid = cx().officeId;
+      if (S.state.demo.officeId !== oid) S.dispatch('setDemo', { officeId: oid });
+      UI.setView('office');
+      location.hash = '#/requests/' + id;
+      if (el.dataset.ov) {
+        const role = S.state.demo.role;
+        if (!['admin', 'operations'].includes(role)) { toast('تعديل المبلغ متاح لمدير المكتب أو العمليات. غيّر "الدور" في الشريط العلوي.', 'info'); return; }
+        setTimeout(() => UI.act['rq-override']({ dataset: { id } }), 60);
+      }
     },
     'cx-info': (el) => {
       const t = document.getElementById('cx-info');

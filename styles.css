@@ -673,3 +673,6 @@ details.adv { margin: 8px 0 12px; } details.adv > summary { font-size: 13px; }
 .cx-ov th:first-child { text-align: start; }
 .cx-ov td:nth-child(2) { text-align: end; color: var(--muted); text-decoration: line-through; white-space: nowrap; padding-inline-start: 8px; }
 @media (max-width: 600px) { .ov-grid { grid-template-columns: 1fr; } }
+.cx-jump { background: var(--primary-50); border: 1px solid #c9dafb; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+.cx-jump .action-stack { display: flex; flex-direction: column; gap: 6px; }
+.ov-hint { margin-bottom: 10px; }
