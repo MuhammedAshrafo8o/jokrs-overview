@@ -14,6 +14,16 @@ Interactive, Arabic-first (RTL) frontend simulation of one configurable module t
 
 All three run on the same store: an action in one tab shows up immediately in the others. Customer actions run with role `customer` and platform actions with role `platform` (`Store.dispatchAs`), so permissions, calculation and audit are the same as in the portal. The demo toolbar (simulated time, provider outage, tests, reset) is shared; office and role selectors and scenarios appear only in the office tab. Optional `?view=customer|jokrs|office` opens a view directly; separate windows of the same copy stay in sync through `localStorage`.
 
+## Manual override of the final amount (office)
+
+On a cancellation, package-refund, no-show or quality request, office **admin or operations** can press **تعديل المبلغ النهائي يدوياً** and type the final office fee (or the customer's service refund — the two always add up to the eligible amount). A written reason is required and shown to the customer.
+
+- Works on open requests, and on requests already approved (including auto-approved ones from the app) as long as their refund has not started; the cancellation itself stays, only the fee/refund split changes.
+- Equal to or kinder than the policy → applied immediately (refund created or updated).
+- Higher than the policy the customer accepted → status **بانتظار موافقة العميل على المبلغ المعدّل**; the refund is held; the customer accepts or rejects in the app (reject → back to review, or the previous decision stands). The office can withdraw it.
+- JOKRS fees follow platform rules and are never changed by an override. JOKRS dashboard flags overrides, especially above-policy ones.
+- Not available for reschedules, credit restores, office-fault cases or refunds already processing/completed.
+
 ## Open it
 
 - Double-click `index.html` (works from `file://` — plain scripts, no modules, no fetch, no build), **or**

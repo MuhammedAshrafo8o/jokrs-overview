@@ -36,7 +36,7 @@
   }
 
   /* ---------------- derived data ---------------- */
-  const OPEN = ['awaiting_review', 'info_requested', 'proposal_sent'];
+  const OPEN = ['awaiting_review', 'info_requested', 'proposal_sent', 'override_sent'];
   function pendingVersions() {
     const out = [];
     offices().forEach((o) => o.policies.forEach((p) => p.versions.forEach((v) => { if (v.status === 'pending_review') out.push({ o, p, v }); })));
@@ -95,6 +95,7 @@
     allRefunds().filter((x) => x.rf.state === 'failed').forEach(({ o, rf }) => attention.push(['danger', 'coins', `${o.office.name}: فشل الاسترداد ${rf.ref} (${JK.sar(rf.components.total)}) — ${rf.failureReason || ''}`, 'refunds']));
     allRequests().filter(({ o, r }) => overdue(o, r)).forEach(({ o, r }) => attention.push(['warning', 'clock', `${o.office.name}: الطلب ${r.ref} تجاوز مهلة المراجعة المعلنة للعميل`, 'requests']));
     allRequests().filter(({ r }) => OPEN.includes(r.status) && (r.type === 'exception_review' || r.disputed)).forEach(({ o, r }) => attention.push(['info', 'alert', `${o.office.name}: ${r.ref} ${r.disputed ? 'نزاع على تعذّر الاستقبال' : 'مراجعة استثنائية / حقوقية'} — قيد متابعة المنصة`, 'requests']));
+    allRequests().filter(({ r }) => r.override && r.override.above && ['pending_customer', 'accepted'].includes(r.override.status)).forEach(({ o, r }) => attention.push(['warning', 'edit', `${o.office.name}: ${r.ref} مبلغ معدّل يدوياً أعلى من السياسة (${JK.sar(r.override.officeFee)} بدل ${JK.sar(r.override.policyFee)}) — ${r.override.status === 'accepted' ? 'وافق العميل' : 'بانتظار العميل'}`, 'requests']));
     st.forEach(({ o, s }) => s.uncovered.forEach((pk) => attention.push(['danger', 'link', `${o.office.name}: "${pk.name}" معروضة للبيع دون سياسة صالحة`, 'offices'])));
     return `${head('نظرة عامة على المنصة', 'متابعة كل المكاتب في مكان واحد. المنصة تعتمد القواعد المقيدة وتراقب الطلبات والاستردادات، والقرار التشغيلي يبقى لكل مكتب.')}
       <div class="kpis">
@@ -106,9 +107,9 @@
         ${kpi('ledger', 'إجمالي المسترد للعملاء', money(tot('refunded')), 'استردادات مكتملة', 'neutral')}
       </div>
       <section class="card"><h2>المكاتب</h2>
-          <div class="table-wrap"><table class="tbl tbl-compact"><thead><tr><th>المكتب</th><th>حجوزات</th><th>طلبات مفتوحة</th><th>متأخرة</th><th>استردادات</th><th>نسبة الإلغاء</th><th>التغطية</th><th>سياسات</th></tr></thead><tbody>
+          <div class="table-wrap"><table class="tbl tbl-compact"><thead><tr><th>المكتب</th><th>حجوزات</th><th>طلبات مفتوحة</th><th>متأخرة</th><th>استردادات</th><th>نسبة الإلغاء</th><th>تعديلات يدوية</th><th>التغطية</th><th>سياسات</th></tr></thead><tbody>
           ${st.map(({ o, s }) => `<tr class="clickable" data-act="jx-office" data-o="${h(o.office.id)}"><td><b>${h(o.office.name)}</b><div class="muted small">${h(o.office.city)}</div></td><td>${s.active}/${s.bookings}</td><td>${s.open}</td><td>${s.overdue ? badge(s.overdue, 'danger') : '—'}</td>
-            <td>${s.rfPending}${s.rfFailed ? ' ' + badge(s.rfFailed + ' فشل', 'danger') : ''}</td><td>${s.cancelRate}%</td>
+            <td>${s.rfPending}${s.rfFailed ? ' ' + badge(s.rfFailed + ' فشل', 'danger') : ''}</td><td>${s.cancelRate}%</td><td>${s.overrides ? s.overrides + (s.overridesAbove ? ' ' + badge(s.overridesAbove + ' أعلى من السياسة', 'warning') : '') : '—'}</td>
             <td>${s.uncovered.length ? badge(s.uncovered.length + ' بلا سياسة', 'danger') : s.stopped.length ? badge(s.stopped.length + ' بيع متوقف', 'warning') : badge('مكتملة', 'success')}</td>
             <td>${s.pendingV ? badge(s.pendingV + ' للمراجعة', 'warning') : ''}${s.rejectedV ? ' ' + badge(s.rejectedV + ' تعديلات', 'muted') : ''}${!s.pendingV && !s.rejectedV ? '—' : ''}</td></tr>`).join('')}
           </tbody></table></div></section>
@@ -180,7 +181,8 @@
     let list = allRequests();
     if (f.office) list = list.filter((x) => x.o.office.id === f.office);
     if (f.status === 'open') list = list.filter((x) => OPEN.includes(x.r.status));
-    else if (f.status === 'flag') list = list.filter((x) => x.r.type === 'exception_review' || x.r.disputed || overdue(x.o, x.r));
+    else if (f.status === 'flag') list = list.filter((x) => x.r.type === 'exception_review' || x.r.disputed || overdue(x.o, x.r) || (x.r.override && x.r.override.above));
+    else if (f.status === 'manual') list = list.filter((x) => x.r.override && x.r.override.status !== 'withdrawn');
     else if (f.status) list = list.filter((x) => x.r.status === f.status);
     if (f.type) list = list.filter((x) => x.r.type === f.type);
     if (f.q) list = list.filter((x) => (x.r.ref + ' ' + x.r.bookingRef + ' ' + x.r.customerName).includes(f.q));
@@ -188,7 +190,7 @@
     return `${head('الطلبات عبر المكاتب', 'عرض رقابي للقراءة: القرار على الطلب يتخذه المكتب وفق السياسة التي وافق عليها العميل. المنصة تتابع المهل والنزاعات والمراجعات الاستثنائية.')}
       <div class="filters card">
         <label class="field"><span>المكتب</span>${officeSel('jx-f-office', f.office, 'jx-f')}</label>
-        <label class="field"><span>الحالة</span><select id="jx-f-status" data-on-change="jx-f"><option value="">الكل</option><option value="open"${f.status === 'open' ? ' selected' : ''}>مفتوحة</option><option value="flag"${f.status === 'flag' ? ' selected' : ''}>تحتاج متابعة المنصة</option>${Object.keys(L.requestStatus).map((k) => `<option value="${k}"${f.status === k ? ' selected' : ''}>${h(L.requestStatus[k])}</option>`).join('')}</select></label>
+        <label class="field"><span>الحالة</span><select id="jx-f-status" data-on-change="jx-f"><option value="">الكل</option><option value="open"${f.status === 'open' ? ' selected' : ''}>مفتوحة</option><option value="flag"${f.status === 'flag' ? ' selected' : ''}>تحتاج متابعة المنصة</option><option value="manual"${f.status === 'manual' ? ' selected' : ''}>معدّلة يدوياً من المكتب</option>${Object.keys(L.requestStatus).map((k) => `<option value="${k}"${f.status === k ? ' selected' : ''}>${h(L.requestStatus[k])}</option>`).join('')}</select></label>
         <label class="field"><span>النوع</span><select id="jx-f-type" data-on-change="jx-f"><option value="">الكل</option>${Object.keys(L.requestType).map((k) => `<option value="${k}"${f.type === k ? ' selected' : ''}>${h(L.requestType[k])}</option>`).join('')}</select></label>
         <label class="field"><span>بحث</span><input id="jx-f-q" type="search" value="${h(f.q)}" placeholder="رقم الطلب أو الحجز أو العميل" data-on-change="jx-f"></label>
       </div>
@@ -196,13 +198,14 @@
         ${list.map(({ o, r }) => `<tr class="clickable" data-act="jx-req" data-o="${h(o.office.id)}" data-id="${h(r.id)}"><td><b>${h(r.ref)}</b><div class="muted small">${h(JK.fmtDTs(r.createdAt))}</div></td><td>${oName(o)}</td><td>${h(r.customerName)}<div class="muted small">${h(r.bookingRef)}</div></td>
           <td>${h(L.requestType[r.type])}${r.initiator === 'office' ? '<div class="muted small">بمبادرة المكتب</div>' : ''}</td><td>${UI.reqBadge(r.status)}</td>
           <td>${r.calc ? money(r.calc.totalRefund) : '—'}</td><td>${r.calc ? money(r.calc.officeFee) : '—'}</td>
-          <td>${overdue(o, r) ? badge('متأخر', 'danger') : ''}${r.type === 'exception_review' ? ' ' + badge('استثنائي', 'accent') : ''}${r.disputed ? ' ' + badge('نزاع', 'warning') : ''}${r.waiver ? ' ' + badge('إعفاء', 'info') : ''}</td></tr>`).join('')}
+          <td>${overdue(o, r) ? badge('متأخر', 'danger') : ''}${r.type === 'exception_review' ? ' ' + badge('استثنائي', 'accent') : ''}${r.disputed ? ' ' + badge('نزاع', 'warning') : ''}${r.waiver ? ' ' + badge('إعفاء', 'info') : ''}${r.override && r.override.status !== 'withdrawn' ? ' ' + badge(r.override.above ? 'يدوي ↑ السياسة' : 'تعديل يدوي', r.override.above ? 'warning' : 'info') : ''}</td></tr>`).join('')}
       </tbody></table></div>` : UI.empty('لا توجد طلبات مطابقة', 'غيّر عوامل التصفية.')}</section>`;
   };
   function requestDrawer(o, r) {
     const b = byId(o.bookings, r.bookingId), rf = r.refundId ? byId(o.refunds, r.refundId) : null;
     return `${kv([['المكتب', h(o.office.name)], ['الحجز', h(b.ref) + ' · ' + h(b.packageName)], ['العميل', h(r.customerName)], ['النوع', h(L.requestType[r.type])], ['الحالة', UI.reqBadge(r.status)],
         ['وقت الطلب', h(JK.fmtDT(r.requestedAt))], ['المبادر / المسبب', h(L.initiator[r.initiator] || r.initiator) + ' / ' + h(L.cause[r.cause] || r.cause)], ['السياسة المقبولة', h(r.policyVersion)], r.reason ? ['السبب', h(r.reason)] : null])}
+      ${r.override ? `<h3 class="h3">تعديل يدوي من المكتب</h3>${kv([['الحالة', h({ applied: 'طُبّق مباشرة', pending_customer: 'بانتظار موافقة العميل', accepted: 'وافق العميل', rejected: 'رفضه العميل', withdrawn: 'سُحب' }[r.override.status] || r.override.status)], r.override.policyFee !== null ? ['رسوم المكتب', money(r.override.policyFee) + ' ← <b>' + money(r.override.officeFee) + '</b>' + (r.override.above ? ' ' + badge('أعلى من السياسة', 'warning') : '')] : null, ['المعاد للعميل', money(r.override.policyRefund) + ' ← <b>' + money(r.override.refund) + '</b>'], ['السبب', h(r.override.reason)], ['بواسطة', h(r.override.by) + ' · ' + h(JK.fmtDTs(r.override.at))]])}` : ''}
       ${r.calc ? `<h3 class="h3">الحساب المطبق</h3>${UI.calcView(r.calc, b)}` : `<p class="muted">لم يُتخذ قرار بعد.</p>`}
       ${rf ? `<h3 class="h3">الاسترداد ${h(rf.ref)}</h3><p>${UI.refundBadge(rf.state)} ${money(rf.components.total)}</p>` : ''}
       <h3 class="h3">سجل الطلب</h3><ul class="timeline">${r.activity.map((a) => `<li><time>${h(JK.fmtDTs(a.at))}</time> <b>${h(a.actor)}</b> <span class="muted small">(${h(L.role[a.role] || a.role)})</span><div>${h(a.text)}</div></li>`).join('')}</ul>`;

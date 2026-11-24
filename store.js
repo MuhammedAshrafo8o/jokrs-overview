@@ -343,7 +343,7 @@
     var b = byId(ctx.o.bookings, r.bookingId);
     return E.calculate({ booking: b, platform: ctx.platform, req: reqFromRequest(r, extra) });
   }
-  var OPEN = ['awaiting_review', 'info_requested', 'proposal_sent'];
+  var OPEN = ['awaiting_review', 'info_requested', 'proposal_sent', 'override_sent'];
   function visitWorkerIds(v) { return v.workers.filter(function (w) { return w.status === 'assigned'; }).map(function (w) { return w.workerId; }); }
 
   function applyDecision(ctx, r, calc, status, note, actor) {
@@ -453,13 +453,159 @@
     return r;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Manual override: the office sets the final amount by hand            */
+  /* ------------------------------------------------------------------ */
+  var OVERRIDE_TYPES = ['cancel_visits', 'cancel_all_remaining', 'package_refund', 'no_show', 'quality_issue'];
+  function overridable(r) { return OVERRIDE_TYPES.indexOf(r.type) >= 0 || (r.type === 'exception_review' && OVERRIDE_TYPES.indexOf(r.baseType) >= 0); }
+  /** Can an already-decided request still have its amount changed? Only while no money has moved. */
+  function reopenable(o, r) {
+    if (['approved', 'auto_approved'].indexOf(r.status) < 0 || !r.calc || !r.refundId) return false;
+    if (r.type === 'quality_issue' || ['cash_refund', 'release_authorization', 'no_refund'].indexOf(r.calc.outcome) < 0 || r.calc.creditOutcome) return false;
+    if (!overridable(r)) return false;
+    var rf = byId(o.refunds, r.refundId);
+    return !!rf && ['awaiting_review', 'approved', 'not_required'].indexOf(rf.state) >= 0 && !rf.attempts.length;
+  }
+  function decidedPolicyFee(r) { return r.calc.manual ? r.calc.manual.policyFee : r.calc.officeFeeBeforeWaiver; }
+  /** Re-split an applied decision between office fee and customer refund (visits stay cancelled). */
+  function resplit(ctx, r, F) {
+    var o = ctx.o, b = byId(o.bookings, r.bookingId), old = r.calc, c = E.clone(old);
+    var effs = c.effects.workers.length ? c.effects.workers : c.effects.credits;
+    var rems = effs.map(function (e) { return (e.fee || 0) + (e.refund || 0); });
+    var parts = E.allocate(F, rems);
+    effs.forEach(function (e, i) {
+      var d = parts[i] - (e.fee || 0);
+      if (!d) return;
+      if (c.effects.workers.length) { var v = findVisit(b, e.visitId), w = byId(v.workers, e.workerId); w.fee += d; w.refunded -= d; }
+      else { var cr = byId(b.credits.items, e.creditId); cr.fee += d; cr.refunded -= d; }
+      e.fee = parts[i]; e.refund -= d;
+    });
+    c.officeFee = F; c.serviceRefund = c.eligible - F; c.waiver = 0;
+    c.taxRefund = E.taxShare(b, c.serviceRefund);
+    b.taxRefunded += c.taxRefund - old.taxRefund;
+    c.totalRefund = c.serviceRefund + c.taxRefund + c.jokrs.refund;
+    c.destinations = E.refundDestinations(b, c.totalRefund, r.destination || 'original', b.policySnapshot.rules);
+    c.outcome = c.totalRefund > 0 ? (c.destinations.every(function (d) { return d.action === 'release_authorization'; }) ? 'release_authorization' : 'cash_refund') : 'no_refund';
+    var pf = decidedPolicyFee(r);
+    c.manual = { fee: F, policyFee: pf, direction: F > pf ? 'above' : F < pf ? 'below' : 'same' };
+    c.trace = (c.trace || []).concat([{ level: 1, text: 'تعديل يدوي من المكتب بعد القرار: رسوم المكتب ' + E.sar(F) + ' بدلاً من ' + E.sar(old.officeFee), applied: true }]);
+    r.calc = c;
+    var rf = byId(o.refunds, r.refundId), before = { state: rf.state, total: rf.components.total };
+    rf.components = { service: c.serviceRefund, tax: c.taxRefund, jokrs: c.jokrs.refund, total: c.totalRefund };
+    rf.destinations = E.clone(c.destinations); rf.outcome = c.outcome;
+    var feeDelta = F - rf.officeFeeRetained; rf.officeFeeRetained = F;
+    var st = c.totalRefund === 0 ? 'not_required' : (c.totalRefund > o.office.refundReviewThreshold ? 'awaiting_review' : 'approved');
+    if (st !== rf.state) { rf.state = st; rf.timeline.push({ state: st, at: ctx.now, by: ctx.actor.name }); }
+    rf.note = c.totalRefund === 0 ? 'لا يوجد مبلغ مستحق للعميل بعد التعديل اليدوي.' : '';
+    if (feeDelta) ledgerAdd(ctx, rf, 'office_fee_retained', feeDelta, 'تعديل يدوي على رسوم المكتب المحتفظ بها (قيد مذكرة)', 'memo');
+    audit(ctx, 'refund.adjusted', 'refund', rf.id, before, { state: rf.state, total: c.totalRefund }, 'تعديل يدوي على ' + r.ref);
+    return c;
+  }
+  function overrideRequest(ctx, p) {
+    var r = byId(ctx.o.requests, p.requestId); if (!r) throw ActionError('الطلب غير موجود.');
+    if (['approved', 'auto_approved'].indexOf(r.status) >= 0) return overrideDecided(ctx, r, p);
+    reviewable(r);
+    if (!overridable(r)) throw ActionError('التعديل اليدوي للمبلغ متاح لطلبات الإلغاء والاسترداد وتعذّر الاستقبال ومشكلات الجودة فقط (ليس لإعادة الجدولة أو إعادة الرصيد أو خلل المكتب).', 'type');
+    var fee = p.officeFee;
+    if (!Number.isInteger(fee) || fee < 0) throw ActionError('أدخل مبلغاً صحيحاً لرسوم المكتب النهائية.');
+    if (!p.reason || p.reason.trim().length < 5) throw ActionError('سبب التعديل اليدوي مطلوب (5 أحرف على الأقل) ويُعرض للعميل.', 'reason');
+    var base = calcFor(ctx, r, { waiver: 0 });
+    if (!base.ok) throw ActionError('لا يمكن حساب الطلب: ' + base.blocked, 'blocked');
+    var calc = calcFor(ctx, r, { manualFee: fee, waiver: 0 });
+    if (!calc.ok || !calc.manual) throw ActionError('تعذّر تطبيق التعديل اليدوي على هذا الطلب.');
+    var max = r.type === 'quality_issue' ? base.affectedOpen : base.eligible;
+    if (calc.officeFee !== fee && r.type !== 'quality_issue') throw ActionError('رسوم المكتب لا يمكن أن تتجاوز القيمة المؤهلة للاسترداد (' + E.sar(max) + ').', 'bounds');
+    if (r.type === 'quality_issue' && fee > max) throw ActionError('لا يمكن أن يتجاوز المبلغ قيمة الزيارة المنفذة (' + E.sar(max) + ').', 'bounds');
+    var policyFee = r.type === 'quality_issue' ? null : base.officeFeeBeforeWaiver;
+    var above = policyFee !== null && fee > policyFee;
+    var before = { status: r.status, officeFee: policyFee, refund: base.totalRefund };
+    r.override = { officeFee: fee, policyFee: policyFee, refund: calc.totalRefund, policyRefund: base.totalRefund, reason: p.reason.trim(), by: ctx.actor.name, role: ctx.actor.role, at: ctx.now,
+      status: above ? 'pending_customer' : 'applied', above: above };
+    if (above) {
+      r.status = 'override_sent';
+      actLog(r, ctx, 'عدّل المكتب المبلغ يدوياً إلى رسوم ' + E.sar(fee) + ' (السياسة: ' + E.sar(policyFee) + ') — المبلغ المعاد ' + E.sar(calc.totalRefund) + '. أعلى من السياسة؛ بانتظار موافقة العميل. السبب: ' + p.reason.trim());
+      audit(ctx, 'request.override_proposed', 'request', r.id, before, { status: 'override_sent', officeFee: fee, refund: calc.totalRefund, abovePolicy: true }, p.reason.trim());
+      return r;
+    }
+    applyDecision(ctx, r, calc, 'approved', 'تعديل يدوي: ' + p.reason.trim());
+    actLog(r, ctx, 'اعتُمد بمبلغ معدّل يدوياً: رسوم المكتب ' + E.sar(fee) + (policyFee !== null ? ' بدلاً من ' + E.sar(policyFee) + ' وفق السياسة' : '') + ' — المبلغ المعاد ' + E.sar(calc.totalRefund) + '. السبب: ' + p.reason.trim());
+    audit(ctx, 'request.overridden', 'request', r.id, before, { status: 'approved', officeFee: fee, refund: calc.totalRefund, abovePolicy: false }, p.reason.trim());
+    return r;
+  }
+  function overrideDecided(ctx, r, p) {
+    if (!reopenable(ctx.o, r)) throw ActionError('لا يمكن تعديل مبلغ هذا الطلب: إما أن الاسترداد بدأ تنفيذه أو اكتمل، أو أن نتيجته ليست مبلغاً (إعادة رصيد/موعد بديل/تعديل موعد).', 'state');
+    var fee = p.officeFee;
+    if (!Number.isInteger(fee) || fee < 0) throw ActionError('أدخل مبلغاً صحيحاً لرسوم المكتب النهائية.');
+    if (fee > r.calc.eligible) throw ActionError('رسوم المكتب لا يمكن أن تتجاوز القيمة المؤهلة للاسترداد (' + E.sar(r.calc.eligible) + ').', 'bounds');
+    if (!p.reason || p.reason.trim().length < 5) throw ActionError('سبب التعديل اليدوي مطلوب (5 أحرف على الأقل) ويُعرض للعميل.', 'reason');
+    var pf = decidedPolicyFee(r), above = fee > pf;
+    var preview = E.clone(r.calc); preview.officeFee = fee; preview.serviceRefund = r.calc.eligible - fee;
+    var b = byId(ctx.o.bookings, r.bookingId);
+    var newTotal = preview.serviceRefund + E.taxShare(b, preview.serviceRefund) + r.calc.jokrs.refund;
+    var before = { status: r.status, officeFee: r.calc.officeFee, refund: r.calc.totalRefund };
+    r.override = { officeFee: fee, policyFee: pf, refund: newTotal, policyRefund: r.calc.totalRefund, reason: p.reason.trim(), by: ctx.actor.name, role: ctx.actor.role, at: ctx.now,
+      status: above ? 'pending_customer' : 'applied', above: above, reopened: true, prevStatus: r.status };
+    if (above) {
+      r.status = 'override_sent';
+      actLog(r, ctx, 'أعاد المكتب فتح الطلب وعدّل المبلغ يدوياً: رسوم ' + E.sar(fee) + ' (السياسة: ' + E.sar(pf) + ') — المبلغ المعاد ' + E.sar(newTotal) + '. أعلى من السياسة؛ الاسترداد معلّق حتى موافقة العميل. السبب: ' + p.reason.trim());
+      audit(ctx, 'request.override_proposed', 'request', r.id, before, { status: 'override_sent', officeFee: fee, refund: newTotal, abovePolicy: true, reopened: true }, p.reason.trim());
+      return r;
+    }
+    var c = resplit(ctx, r, fee);
+    actLog(r, ctx, 'عدّل المكتب مبلغ الطلب المعتمد يدوياً: رسوم المكتب ' + E.sar(fee) + ' بدلاً من ' + E.sar(before.officeFee) + ' — المبلغ المعاد ' + E.sar(c.totalRefund) + '. السبب: ' + p.reason.trim());
+    audit(ctx, 'request.overridden', 'request', r.id, before, { status: r.status, officeFee: fee, refund: c.totalRefund, reopened: true }, p.reason.trim());
+    return r;
+  }
+  function withdrawOverride(ctx, p) {
+    var r = byId(ctx.o.requests, p.requestId); if (!r) throw ActionError('الطلب غير موجود.');
+    if (r.status !== 'override_sent') throw ActionError('لا يوجد تعديل معلّق لسحبه.', 'state');
+    r.override.status = 'withdrawn'; r.status = r.override.reopened ? r.override.prevStatus : 'awaiting_review';
+    actLog(r, ctx, 'سحب المكتب المبلغ المعدّل قبل رد العميل؛ ' + (r.override.reopened ? 'بقي القرار السابق كما هو.' : 'عاد الطلب للمراجعة.'));
+    audit(ctx, 'request.override_withdrawn', 'request', r.id, { status: 'override_sent' }, { status: r.status }, '');
+    return r;
+  }
+  function respondOverride(ctx, p) {
+    var r = byId(ctx.o.requests, p.requestId); if (!r) throw ActionError('الطلب غير موجود.');
+    if (r.status !== 'override_sent' || !r.override || r.override.status !== 'pending_customer') throw ActionError('لا يوجد تعديل بانتظار موافقتك على هذا الطلب.', 'state');
+    var b = byId(ctx.o.bookings, r.bookingId), cust = customerActor(b), ov = r.override;
+    ov.respondedAt = ctx.now;
+    if (ov.reopened) {
+      if (p.accept) {
+        ov.status = 'accepted'; r.status = ov.prevStatus;
+        var c2 = resplit(ctx, r, ov.officeFee);
+        actLog(r, ctx, 'وافق العميل على المبلغ المعدّل: المبلغ المعاد ' + E.sar(c2.totalRefund) + '.', cust);
+        audit(ctx, 'request.override_accepted', 'request', r.id, { status: 'override_sent' }, { status: r.status, officeFee: ov.officeFee, refund: c2.totalRefund }, '', cust);
+      } else {
+        ov.status = 'rejected'; r.status = ov.prevStatus;
+        actLog(r, ctx, 'رفض العميل المبلغ المعدّل' + (p.note ? ': ' + p.note.trim() : '') + '. بقي القرار وفق السياسة كما هو.', cust);
+        audit(ctx, 'request.override_rejected', 'request', r.id, { status: 'override_sent' }, { status: r.status }, p.note || '', cust);
+      }
+      return r;
+    }
+    if (p.accept) {
+      var calc = calcFor(ctx, r, { manualFee: ov.officeFee, waiver: 0 });
+      if (!calc.ok) throw ActionError('تعذّر تطبيق التعديل: ' + calc.blocked);
+      ov.status = 'accepted';
+      applyDecision(ctx, r, calc, 'approved', 'وافق العميل على المبلغ المعدّل', cust);
+      actLog(r, ctx, 'وافق العميل على المبلغ المعدّل: المبلغ المعاد ' + E.sar(calc.totalRefund) + '.', cust);
+      audit(ctx, 'request.override_accepted', 'request', r.id, { status: 'override_sent' }, { status: 'approved', officeFee: ov.officeFee, refund: calc.totalRefund }, '', cust);
+      return r;
+    }
+    ov.status = 'rejected';
+    r.status = 'awaiting_review';
+    actLog(r, ctx, 'رفض العميل المبلغ المعدّل' + (p.note ? ': ' + p.note.trim() : '') + '. عاد الطلب للمراجعة، وتبقى السياسة المقبولة هي المرجع.', cust);
+    audit(ctx, 'request.override_rejected', 'request', r.id, { status: 'override_sent' }, { status: 'awaiting_review' }, p.note || '', cust);
+    return r;
+  }
+
   function rejectRequest(ctx, p) {
     var r = byId(ctx.o.requests, p.requestId); if (!r) throw ActionError('الطلب غير موجود.');
-    if (['awaiting_review', 'info_requested', 'proposal_sent'].indexOf(r.status) < 0) throw ActionError('لا يمكن رفض طلب في حالة "' + E.L.requestStatus[r.status] + '".', 'state');
+    if (['awaiting_review', 'info_requested', 'proposal_sent', 'override_sent'].indexOf(r.status) < 0) throw ActionError('لا يمكن رفض طلب في حالة "' + E.L.requestStatus[r.status] + '".', 'state');
     if (r.type === 'office_cancel') throw ActionError('لا يمكن رفض إجراء ناتج عن خلل المكتب؛ العميل يختار بين الاسترداد أو البديل.');
     if (!p.reason || p.reason.trim().length < 5) throw ActionError('سبب الرفض مطلوب (5 أحرف على الأقل) ويُعرض للعميل.', 'reason');
     var before = { status: r.status };
     r.proposals.forEach(function (x) { if (x.status === 'pending') x.status = 'withdrawn'; });
+    if (r.override && r.override.status === 'pending_customer') r.override.status = 'withdrawn';
     r.status = 'rejected';
     r.decision = { at: ctx.now, by: ctx.actor.name, role: ctx.actor.role, note: p.reason.trim(), outcome: 'rejected' };
     actLog(r, ctx, 'رُفض الطلب: ' + p.reason.trim() + ' — يبقى للعميل حق طلب مراجعة لدى JOKRS.');
@@ -577,8 +723,12 @@
   /* Refund operations                                                   */
   /* ------------------------------------------------------------------ */
   function getRefund(ctx, id) { var rf = byId(ctx.o.refunds, id); if (!rf) throw ActionError('عملية الاسترداد غير موجودة.'); return rf; }
+  function holdIfOverride(ctx, rf) {
+    var r = byId(ctx.o.requests, rf.requestId);
+    if (r && r.status === 'override_sent') throw ActionError('الاسترداد معلّق: الطلب ' + r.ref + ' عليه مبلغ معدّل يدوياً بانتظار موافقة العميل.', 'held');
+  }
   function refundApprove(ctx, p) {
-    var rf = getRefund(ctx, p.refundId);
+    var rf = getRefund(ctx, p.refundId); holdIfOverride(ctx, rf);
     if (rf.state !== 'awaiting_review') throw ActionError('الاسترداد ليس بانتظار المراجعة (الحالة: ' + E.L.refundState[rf.state] + ').', 'state');
     rf.state = 'approved'; rf.timeline.push({ state: 'approved', at: ctx.now, by: ctx.actor.name });
     audit(ctx, 'refund.approved', 'refund', rf.id, { state: 'awaiting_review' }, { state: 'approved' }, rf.requestRef);
@@ -602,7 +752,7 @@
     return att;
   }
   function refundProcess(ctx, p) {
-    var rf = getRefund(ctx, p.refundId);
+    var rf = getRefund(ctx, p.refundId); holdIfOverride(ctx, rf);
     if (rf.state !== 'approved') throw ActionError('يمكن بدء التنفيذ لاسترداد معتمد فقط (الحالة الحالية: ' + E.L.refundState[rf.state] + ').', 'state');
     var att = startAttempt(ctx, rf);
     audit(ctx, 'refund.started', 'refund', rf.id, { state: 'approved' }, { state: rf.state, attempt: att.id, operationId: rf.opId }, rf.requestRef);
@@ -897,6 +1047,9 @@
     addEvidence: { perm: 'request.review', run: addEvidence },
     proposeAlternative: { perm: 'request.review', run: proposeAlternative },
     waiveFee: { perm: 'request.waive', run: waiveFee },
+    overrideRequest: { perm: 'request.review', run: overrideRequest },
+    withdrawOverride: { perm: 'request.review', run: withdrawOverride },
+    respondOverride: { perm: 'customer.simulate', run: respondOverride },
     customerProvideInfo: { perm: 'customer.simulate', run: customerProvideInfo },
     respondProposal: { perm: 'customer.simulate', run: respondProposal },
     refundApprove: { perm: 'refund.finance', run: refundApprove },
@@ -982,7 +1135,7 @@
   JK.store = { can: can, PERMS: PERMS, ActionError: ActionError, mkCtx: mkCtx, quote: quote, buildBooking: buildBooking, snapshotOf: snapshotOf, audit: audit,
     ops: { createPolicy: createPolicy, saveDraft: saveDraft, newVersion: newVersion, submitVersion: submitVersion, platformDecide: platformDecide, archivePolicy: archivePolicy,
       setAssignment: setAssignment, submitRequest: submitRequest, approveRequest: approveRequest, rejectRequest: rejectRequest, requestInfo: requestInfo, addEvidence: addEvidence,
-      waiveFee: waiveFee, proposeAlternative: proposeAlternative, respondProposal: respondProposal, customerProvideInfo: customerProvideInfo,
+      waiveFee: waiveFee, overrideRequest: overrideRequest, respondOverride: respondOverride, overridable: overridable, reopenable: reopenable, proposeAlternative: proposeAlternative, respondProposal: respondProposal, customerProvideInfo: customerProvideInfo,
       refundApprove: refundApprove, refundProcess: refundProcess, refundRetry: refundRetry, providerCallback: providerCallback,
       checkoutStart: checkoutStart, checkoutAccept: checkoutAccept, checkoutConfirm: checkoutConfirm },
     ACTIONS: ACTIONS, uncovered: uncovered, byId: byId, SCHEMA: SCHEMA, validState: validState, nextRef: nextRef, ledgerAdd: ledgerAdd, completeRefund: completeRefund, applyEffects: applyEffects };

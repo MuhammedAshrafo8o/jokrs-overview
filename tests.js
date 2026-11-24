@@ -324,6 +324,79 @@
         eq(office('A').audit.length, n + 1); eq(JSON.stringify(office('A').audit.slice(0, 5)), first);
         var e = office('A').audit[n]; if (!e.actor || !e.role || !e.at || !e.entityId) throw new Error('incomplete audit event');
       });
+      /* ---------- Manual override by the office ---------- */
+      function reqByRef(o, ref) { return office(o).requests.filter(function (r) { return r.ref === ref; })[0]; }
+      t('تعديل يدوي ≤ السياسة يُعتمد فوراً، ورسوم + استرداد = القيمة المؤهلة', function () {
+        fresh('C', 'operations');
+        var r = reqByRef('C', 'R-C-2005'), b = st.byId(office('C').bookings, r.bookingId);
+        var base = JK.calculate({ booking: b, platform: S.state.platform, req: { type: r.type, at: r.requestedAt, visitIds: r.visitIds } });
+        S.dispatch('overrideRequest', { requestId: r.id, officeFee: 0, reason: 'تعويض حسن نية للعميل' });
+        r = reqByRef('C', 'R-C-2005');
+        eq(r.status, 'approved'); eq(r.override.status, 'applied'); eq(r.calc.officeFee, 0);
+        eq(r.calc.officeFee + r.calc.serviceRefund, base.eligible, 'fee + refund = eligible');
+        var rf = st.byId(office('C').refunds, r.refundId); eq(rf.components.service, base.eligible);
+        if (base.officeFee === 0) throw new Error('seed request should have a policy fee');
+      });
+      t('تعديل يدوي أعلى من السياسة ينتظر موافقة العميل؛ القبول يطبق المبلغ', function () {
+        fresh('C', 'admin');
+        var r = reqByRef('C', 'R-C-2005'), b = st.byId(office('C').bookings, r.bookingId);
+        var base = JK.calculate({ booking: b, platform: S.state.platform, req: { type: r.type, at: r.requestedAt, visitIds: r.visitIds } });
+        var fee = base.officeFee + 1000;
+        S.dispatch('overrideRequest', { requestId: r.id, officeFee: fee, reason: 'استخدام إضافي غير مسجل' });
+        r = reqByRef('C', 'R-C-2005');
+        eq(r.status, 'override_sent'); eq(r.refundId, null, 'no refund before customer accepts');
+        throwsCode(function () { S.dispatch('approveRequest', { requestId: r.id }); }, 'state');
+        S.dispatchAs('respondOverride', { requestId: r.id, accept: true }, { officeId: 'C', role: 'customer' });
+        r = reqByRef('C', 'R-C-2005');
+        eq(r.status, 'approved'); eq(r.calc.officeFee, fee); eq(r.override.status, 'accepted');
+        eq(st.byId(office('C').refunds, r.refundId).components.service, base.eligible - fee);
+      });
+      t('حدود التعديل اليدوي والصلاحيات، ورفض العميل يعيد الطلب للمراجعة دون أثر مالي', function () {
+        fresh('C', 'admin');
+        var r = reqByRef('C', 'R-C-2005');
+        throwsCode(function () { S.dispatch('overrideRequest', { requestId: r.id, officeFee: 99999999, reason: 'اختبار الحد الأعلى' }); }, 'bounds');
+        throwsCode(function () { S.dispatch('overrideRequest', { requestId: r.id, officeFee: 0, reason: '' }); }, 'reason');
+        as('viewer'); throwsCode(function () { S.dispatch('overrideRequest', { requestId: r.id, officeFee: 0, reason: 'غير مسموح للمشاهد' }); }, 'forbidden');
+        as('finance'); throwsCode(function () { S.dispatch('overrideRequest', { requestId: r.id, officeFee: 0, reason: 'غير مسموح للمالية' }); }, 'forbidden');
+        throwsCode(function () { S.dispatchAs('overrideRequest', { requestId: r.id, officeFee: 0, reason: 'العميل لا يعدّل' }, { officeId: 'C', role: 'customer' }); }, 'forbidden');
+        as('admin');
+        S.dispatch('overrideRequest', { requestId: r.id, officeFee: reqFee(r), reason: 'أعلى من السياسة' });
+        var n = office('C').refunds.length;
+        S.dispatchAs('respondOverride', { requestId: r.id, accept: false, note: 'لا أوافق' }, { officeId: 'C', role: 'customer' });
+        r = reqByRef('C', 'R-C-2005');
+        eq(r.status, 'awaiting_review'); eq(r.override.status, 'rejected'); eq(office('C').refunds.length, n, 'no refund created');
+        function reqFee(rq) { var b = st.byId(office('C').bookings, rq.bookingId); return JK.calculate({ booking: b, platform: S.state.platform, req: { type: rq.type, at: rq.requestedAt } }).officeFee + 1; }
+      });
+      t('تعديل طلب معتمد آلياً لم يُصرف استرداده: لصالح العميل يطبق فوراً بنفس الإلغاء', function () {
+        fresh('A', 'admin', '2026-11-24 08:00');
+        var cr = S.dispatchAs('submitCustomerRequest', { bookingId: 'BK-A-1002', type: 'cancel_visits', visitIds: ['BK-A-1002-V1'] }, { officeId: 'A', role: 'customer' });
+        var r = reqByRef('A', cr.ref); eq(r.status, 'auto_approved');
+        var fee0 = r.calc.officeFee, tot0 = r.calc.totalRefund; if (!(fee0 > 0)) throw new Error('expected late-band fee');
+        as('operations');
+        S.dispatch('overrideRequest', { requestId: r.id, officeFee: 0, reason: 'ظرف طارئ موثق' });
+        r = reqByRef('A', cr.ref);
+        var b = st.byId(office('A').bookings, 'BK-A-1002'), v = b.visits[0];
+        eq(r.status, 'auto_approved'); eq(r.calc.officeFee, 0); eq(v.status, 'canceled');
+        eq(JK.sum(v.workers.map(function (w) { return w.fee; })), 0, 'worker fees cleared');
+        v.workers.forEach(function (w) { eq(w.fee + w.refunded + w.absorbed + w.consumed, w.alloc, 'worker balance'); });
+        var rf = st.byId(office('A').refunds, r.refundId);
+        if (!(rf.components.total > tot0)) throw new Error('refund should increase');
+        eq(rf.components.service, r.calc.eligible); eq(rf.officeFeeRetained, 0);
+      });
+      t('تعديل أعلى من السياسة على طلب معتمد يعلّق الاسترداد حتى موافقة العميل', function () {
+        fresh('A', 'admin');
+        var cr = S.dispatchAs('submitCustomerRequest', { bookingId: 'BK-A-1001', type: 'cancel_visits', visitIds: [st.byId(office('A').bookings, 'BK-A-1001').visits.filter(function (v) { return v.status === 'scheduled'; }).slice(-1)[0].id] }, { officeId: 'A', role: 'customer' });
+        var r = reqByRef('A', cr.ref), tot0 = r.calc.totalRefund; eq(r.calc.officeFee, 0);
+        S.dispatch('overrideRequest', { requestId: r.id, officeFee: 3000, reason: 'تكلفة تجهيز مسبقة' });
+        r = reqByRef('A', cr.ref); eq(r.status, 'override_sent');
+        as('finance'); throwsCode(function () { S.dispatch('refundProcess', { refundId: r.refundId }); }, 'held');
+        S.dispatchAs('respondOverride', { requestId: r.id, accept: true }, { officeId: 'A', role: 'customer' });
+        r = reqByRef('A', cr.ref); eq(r.status, 'auto_approved'); eq(r.calc.officeFee, 3000);
+        var rf = st.byId(office('A').refunds, r.refundId); eq(rf.components.service, r.calc.eligible - 3000);
+        if (!(rf.components.total < tot0)) throw new Error('refund should decrease');
+        S.dispatch('refundProcess', { refundId: rf.id });
+        as('admin'); throwsCode(function () { S.dispatch('overrideRequest', { requestId: r.id, officeFee: 0, reason: 'بعد بدء التنفيذ' }); }, 'state');
+      });
       t('بيانات محفوظة تالفة لا توقف التطبيق', function () {
         S.init({ memoryOnly: true, raw: '{"schema":3, broken' });
         if (!S.state || !S.notice) throw new Error('no recovery');

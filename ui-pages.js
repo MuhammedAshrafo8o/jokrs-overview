@@ -5,7 +5,7 @@
 (function (G) {
   'use strict';
   const JK = G.JK, S = JK.Store, L = JK.L, UI = JK.UI;
-  const { h, ic, money, dt, dts, badge, reqBadge, refundBadge, visitBadge, TONES, btn, permNote, empty, pageHead, kv, toast, run, openModal, closeModal, confirmDialog, go, render } = UI;
+  const { h, ic, money, dt, dts, badge, reqBadge, refundBadge, visitBadge, TONES, btn, permNote, empty, pageHead, kv, toast, run, openModal, closeModal, renderModal, confirmDialog, go, render } = UI;
   const office = () => S.office(), now = () => S.state.demo.now, byId = (a, id) => JK.store.byId(a, id);
 
   /* ---------------- shared helpers ---------------- */
@@ -51,6 +51,7 @@
       rows.push(['قيمة الخدمة المدفوعة (بعد الخصم)', money(f.serviceNet)], ['مستهلك (زيارات منفذة/محتسبة)', money(f.consumed)], ['مسترد أو مسوّى سابقاً', money(f.settled)],
         ['المتبقي القابل للاسترداد في الحجز', money(f.remaining)], ['قيمة الحصص المتأثرة', money(c.affectedOpen)], ['القيمة المؤهلة لهذه العملية', money(c.eligible)]);
       if (c.waiver) rows.push(['رسوم المكتب قبل الإعفاء', money(c.officeFeeBeforeWaiver)], ['إعفاء معتمد', money(-c.waiver)]);
+      if (c.manual && c.manual.direction !== 'quality') rows.push(['رسوم المكتب وفق السياسة', money(c.manual.policyFee)], ['تعديل يدوي من المكتب', `${money(c.manual.fee)} ${c.manual.direction === 'above' ? badge('أعلى من السياسة', 'danger') : c.manual.direction === 'below' ? badge('لصالح العميل', 'success') : ''}`]);
     }
     const sum = c.outcome === 'reschedule' ? '' : `
       <table class="calc-sum"><tbody>
@@ -387,7 +388,7 @@
     const o = office(), f = UI.filters.requests;
     let list = o.requests.slice().sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt));
     if (f.type) list = list.filter((r) => r.type === f.type || r.baseType === f.type);
-    if (f.status === 'open') list = list.filter((r) => ['awaiting_review', 'info_requested', 'proposal_sent'].includes(r.status));
+    if (f.status === 'open') list = list.filter((r) => ['awaiting_review', 'info_requested', 'proposal_sent', 'override_sent'].includes(r.status));
     else if (f.status) list = list.filter((r) => r.status === f.status);
     if (f.btype) list = list.filter((r) => r.bookingType === f.btype);
     if (f.cause) list = list.filter((r) => r.cause === f.cause);
@@ -511,8 +512,8 @@
     const o = office(), r = byId(o.requests, id);
     if (!r) return empty('الطلب غير موجود في هذا المكتب', 'الطلبات معزولة لكل مكتب.', `<a class="btn btn-primary" href="#/requests">العودة للطلبات</a>`);
     const b = byId(o.bookings, r.bookingId);
-    const open = ['awaiting_review', 'info_requested', 'proposal_sent'].includes(r.status);
-    const c = open ? liveCalc(r) : r.calc;
+    const open = ['awaiting_review', 'info_requested', 'proposal_sent', 'override_sent'].includes(r.status);
+    const c = r.status === 'override_sent' && r.override && r.override.reopened ? r.calc : open ? liveCalc(r, r.status === 'override_sent' && r.override ? { manualFee: r.override.officeFee, waiver: 0 } : {}) : r.calc;
     const rf = r.refundId ? byId(o.refunds, r.refundId) : null;
     const snap = b.policySnapshot;
     const isRes = r.type === 'reschedule' || r.baseType === 'reschedule';
@@ -523,12 +524,16 @@
       if (isRes) acts.push(btn({ label: 'اقتراح موعد بديل', icon: 'calendar', perm: 'request.review', act: 'rq-propose', data: { id: r.id } }));
       if (r.status === 'awaiting_review') acts.push(btn({ label: 'طلب معلومات', icon: 'info', perm: 'request.review', act: 'rq-info', data: { id: r.id } }));
       acts.push(btn({ label: 'إضافة إثبات', icon: 'plus', perm: 'request.review', act: 'rq-evidence', data: { id: r.id } }));
+      if (JK.store.ops.overridable(r)) acts.push(btn({ label: 'تعديل المبلغ النهائي يدوياً', icon: 'edit', kind: 'primary', cls: 'btn-override', perm: 'request.review', act: 'rq-override', data: { id: r.id }, why: c && !c.ok ? 'لا يمكن حساب الطلب: ' + c.blocked : '' }));
       if (c && c.ok && c.officeFeeBeforeWaiver > 0) acts.push(btn({ label: 'إعفاء/تخفيض رسوم المكتب', icon: 'coins', perm: 'request.waive', act: 'rq-waive', data: { id: r.id } }));
       if (r.type !== 'office_cancel') acts.push(btn({ label: 'رفض مع سبب', icon: 'x', kind: 'danger', perm: 'request.review', act: 'rq-reject', data: { id: r.id } }));
     }
+    if (JK.store.ops.reopenable(o, r)) acts.push(btn({ label: 'تعديل المبلغ النهائي يدوياً', icon: 'edit', kind: 'primary', perm: 'request.review', act: 'rq-override', data: { id: r.id } }));
+    if (r.status === 'override_sent') { acts.push(btn({ label: 'سحب التعديل', icon: 'x', perm: 'request.review', act: 'rq-ov-withdraw', data: { id: r.id } })); acts.push(btn({ label: 'رفض مع سبب', icon: 'x', kind: 'danger', perm: 'request.review', act: 'rq-reject', data: { id: r.id } })); }
     if (r.status === 'proposal_sent' && r.type !== 'office_cancel') acts.push(btn({ label: 'سحب ورفض مع سبب', icon: 'x', kind: 'danger', perm: 'request.review', act: 'rq-reject', data: { id: r.id } }));
     const sim = [];
     if (r.status === 'info_requested') sim.push(btn({ label: 'تسجيل رد العميل', perm: 'customer.simulate', act: 'rq-cust-info', data: { id: r.id } }));
+    if (r.status === 'override_sent') { sim.push(btn({ label: 'العميل يوافق على المبلغ', icon: 'check', perm: 'customer.simulate', act: 'rq-ov-resp', data: { id: r.id, a: '1' } })); sim.push(btn({ label: 'العميل يرفض المبلغ', icon: 'x', perm: 'customer.simulate', act: 'rq-ov-resp', data: { id: r.id, a: '0' } })); }
     if (r.status === 'proposal_sent') { sim.push(btn({ label: 'العميل يقبل المقترح', icon: 'check', perm: 'customer.simulate', act: 'rq-cust-resp', data: { id: r.id, a: '1' } })); sim.push(btn({ label: 'العميل يرفض المقترح', icon: 'x', perm: 'customer.simulate', act: 'rq-cust-resp', data: { id: r.id, a: '0' } })); }
     const props = r.proposals.length ? `<section class="card"><div class="card-head"><h2>المواعيد المقترحة</h2></div><ul class="mini-list">${r.proposals.map((p) => `<li>${dt(p.start)} — ${badge({ pending: 'بانتظار الرد', accepted: 'مقبول', rejected: 'مرفوض', withdrawn: 'مسحوب', unavailable: 'لم يعد متاحاً' }[p.status], { pending: 'info', accepted: 'success', rejected: 'danger', withdrawn: 'muted', unavailable: 'warning' }[p.status])} <span class="muted small">اقترحه ${h(p.by)} · ${h(JK.fmtDTs(p.at))}</span></li>`).join('')}</ul></section>` : '';
     return `<nav class="crumbs" aria-label="مسار التنقل"><a href="#/requests">الطلبات</a> ${ic('chev')} <span>${h(r.ref)}</span></nav>
@@ -542,6 +547,7 @@
               r.decision ? ['القرار', `${h(r.decision.by)} (${h(L.role[r.decision.role] || r.decision.role)}) · ${dts(r.decision.at)}${r.decision.note ? '<div class="small">' + h(r.decision.note) + '</div>' : ''}`] : null])}
             <h3 class="h3">الإثباتات</h3>${r.evidence.length ? `<ul class="evidence">${r.evidence.map((e) => `<li>${badge(e.by === 'office' ? 'المكتب' : 'العميل', e.by === 'office' ? 'info' : 'accent')} ${h(e.label)} <span class="muted small">${h(JK.fmtDTs(e.at))}</span></li>`).join('')}</ul>` : '<p class="muted">لا توجد إثباتات.</p>'}
           </section>
+          ${r.override ? overrideCard(r) : ''}
           <section class="card"><div class="card-head"><h2>الحساب ${open ? '<span class="muted small">(معاينة مباشرة)</span>' : '<span class="muted small">(لقطة وقت القرار)</span>'}</h2></div>${c ? calcView(c, b, { decided: !open }) : '<p class="muted">لا يوجد حساب محفوظ.</p>'}</section>
           <section class="card"><div class="card-head"><h2>مواعيد الحجز</h2></div>${visitTimeline(b, r.visitIds || [])}</section>
           ${props}
@@ -597,6 +603,79 @@
     const r = run('waiveFee', { requestId: f.dataset.id, amount: a, reason: f.elements.reason.value }, 'سُجّل الإعفاء؛ يظهر أثره في الحساب قبل الاعتماد.');
     if (r.ok) closeModal();
   };
+  /* ---------- manual override of the final amount ---------- */
+  const OV_STATUS = { applied: ['طُبّق مباشرة', 'success'], pending_customer: ['بانتظار موافقة العميل', 'warning'], accepted: ['وافق العميل', 'success'], rejected: ['رفضه العميل', 'danger'], withdrawn: ['سُحب', 'muted'] };
+  function overrideCard(r) {
+    const ov = r.override, st = OV_STATUS[ov.status] || [ov.status, 'neutral'];
+    return `<section class="card ov-card"><div class="card-head"><h2>${ic('edit')} تعديل يدوي للمبلغ</h2>${badge(st[0], st[1])}</div>
+      <div class="table-wrap"><table class="tbl tbl-compact ov-compare"><thead><tr><th></th><th>وفق السياسة</th><th>بعد التعديل</th></tr></thead><tbody>
+        ${ov.policyFee !== null ? `<tr><th scope="row">رسوم المكتب (يتحملها العميل)</th><td>${money(ov.policyFee)}</td><td><b>${money(ov.officeFee)}</b></td></tr>` : ''}
+        <tr><th scope="row">إجمالي المبلغ المعاد للعميل</th><td>${money(ov.policyRefund)}</td><td><b>${money(ov.refund)}</b></td></tr></tbody></table></div>
+      <p class="small"><b>السبب:</b> ${h(ov.reason)}</p><p class="muted small">${h(ov.by)} (${h(L.role[ov.role] || ov.role)}) · ${h(JK.fmtDTs(ov.at))}${ov.above ? ' · أعلى من السياسة المقبولة — يظهر للمنصة' : ''}</p></section>`;
+  }
+  function ovState(r) {
+    const decided = ['approved', 'auto_approved'].includes(r.status);
+    const isQ = r.type === 'quality_issue';
+    let base, max, policyFee;
+    if (decided) { base = r.calc; max = r.calc.eligible; policyFee = r.calc.manual ? r.calc.manual.policyFee : r.calc.officeFeeBeforeWaiver; }
+    else { base = liveCalc(r, { waiver: 0 }); max = isQ ? base.affectedOpen : base.eligible; policyFee = isQ ? null : base.officeFeeBeforeWaiver; }
+    if (!UI.ov || UI.ov.id !== r.id) UI.ov = { id: r.id, fee: isQ ? Math.max(0, max - (r.qualityAmount || 0)) : base.officeFee, reason: '' };
+    UI.ov.fee = Math.max(0, Math.min(UI.ov.fee, max));
+    let c;
+    if (decided) {
+      const b = byId(office().bookings, r.bookingId), svc = max - UI.ov.fee, tax = JK.taxShare(b, svc);
+      c = { officeFee: UI.ov.fee, serviceRefund: svc, taxRefund: tax, jokrs: base.jokrs, totalRefund: svc + tax + base.jokrs.refund };
+    } else c = liveCalc(r, { manualFee: UI.ov.fee, waiver: 0 });
+    return { base, c, max, isQ, policyFee, decided };
+  }
+  function ovBody() {
+    const r = byId(office().requests, UI.ov.id), s = ovState(r), ov = UI.ov, c = s.c;
+    const above = s.policyFee !== null && ov.fee > s.policyFee;
+    const svc = s.max - ov.fee;
+    return `${s.decided ? `<div class="note note-info">${ic('info')}<div>هذا الطلب معتمد ${r.status === 'auto_approved' ? 'آلياً ' : ''}ولم يُصرف استرداده بعد. يبقى الإلغاء كما هو؛ يتغير فقط توزيع المبلغ بين رسوم المكتب والاسترداد.</div></div>` : ''}<p>اكتب المبلغ النهائي بدلاً من نتيجة السياسة. ${s.isQ ? 'حدّد كم تتحمل العميل من قيمة الزيارة المنفذة، والباقي يُعوَّض له.' : 'رسوم المكتب + استرداد الخدمة = القيمة المؤهلة دائماً.'}</p>
+      <div class="ov-grid">
+        <label class="field"><span>${s.isQ ? 'ما يتحمله العميل' : 'رسوم المكتب النهائية (يتحملها العميل)'} — ر.س</span><input id="ov-fee" inputmode="decimal" value="${h(JK.halalasToInput(ov.fee))}" data-on-change="ov-fee"></label>
+        <label class="field"><span>${s.isQ ? 'التعويض للعميل' : 'استرداد الخدمة للعميل'} — ر.س</span><input id="ov-svc" inputmode="decimal" value="${h(JK.halalasToInput(svc))}" data-on-change="ov-svc"></label>
+      </div>
+      <p class="muted small">الحد الأقصى: ${money(s.max)} ${s.isQ ? '(قيمة الزيارة المنفذة)' : '(القيمة المؤهلة لهذه العملية)'}</p>
+      <div class="action-row ov-quick">
+        <button type="button" class="btn btn-ghost btn-sm" data-act="ov-set" data-v="0">استرداد كامل</button>
+        ${s.policyFee !== null ? `<button type="button" class="btn btn-ghost btn-sm" data-act="ov-set" data-v="${s.policyFee}">حسب السياسة (${h(JK.sar(s.policyFee))})</button>` : ''}
+        <button type="button" class="btn btn-ghost btn-sm" data-act="ov-set" data-v="${s.max}">بلا استرداد للخدمة</button>
+      </div>
+      <div class="table-wrap"><table class="tbl tbl-compact ov-compare"><thead><tr><th></th><th>${s.decided ? 'القرار الحالي' : 'وفق السياسة'}</th><th>بعد التعديل</th></tr></thead><tbody>
+        <tr><th scope="row">رسوم المكتب</th><td>${money(s.base.officeFee)}</td><td><b>${money(c.officeFee)}</b></td></tr>
+        <tr><th scope="row">استرداد الخدمة</th><td>${money(s.base.serviceRefund)}</td><td>${money(c.serviceRefund)}</td></tr>
+        <tr><th scope="row">تعديل ضريبي</th><td>${money(s.base.taxRefund)}</td><td>${money(c.taxRefund)}</td></tr>
+        <tr><th scope="row">رسوم JOKRS المستردة</th><td>${money(s.base.jokrs.refund)}</td><td>${money(c.jokrs.refund)}</td></tr>
+        <tr class="ov-total"><th scope="row">إجمالي ما يعود للعميل</th><td>${money(s.base.totalRefund)}</td><td><b>${money(c.totalRefund)}</b></td></tr></tbody></table></div>
+      <p class="muted small">${ic('shield')} رسوم JOKRS تتبع قواعد المنصة ولا يغيّرها التعديل اليدوي.</p>
+      ${above ? `<div class="note note-warning">${ic('alert')}<div><b>أعلى من السياسة التي وافق عليها العميل.</b> لن يُطبق حتى يوافق العميل من التطبيق، ويظهر للمنصة كتعديل أعلى من السياسة. ${s.decided ? 'الاسترداد معلّق حتى رده؛ إن رفض يبقى القرار الحالي.' : 'إن رفض يعود الطلب للمراجعة.'}</div></div>`
+        : s.policyFee !== null && ov.fee < s.policyFee ? `<div class="note note-success">${ic('check')}<div>لصالح العميل — يُطبق فوراً ${s.decided ? 'ويُحدَّث الاسترداد' : 'ويُنشأ الاسترداد'}.</div></div>` : `<div class="note note-info">${ic('info')}<div>يُعتمد فوراً بهذا المبلغ.</div></div>`}
+      <label class="field"><span>سبب التعديل (إلزامي — يُعرض للعميل)</span><textarea id="ov-reason" rows="2" data-on-input="ov-reason">${h(ov.reason)}</textarea></label>`;
+  }
+  function ovFoot() {
+    const r = byId(office().requests, UI.ov.id), s = ovState(r);
+    const above = s.policyFee !== null && UI.ov.fee > s.policyFee;
+    return `<button class="btn btn-secondary" data-act="modal-close" type="button">إلغاء</button><button class="btn btn-primary" type="button" data-act="ov-submit">${above ? 'إرسال للعميل للموافقة' : 'اعتماد بهذا المبلغ'}</button>`;
+  }
+  UI.act['rq-override'] = (el) => {
+    const r = byId(office().requests, el.dataset.id);
+    UI.ov = null; ovState(r);
+    openModal({ title: 'تعديل المبلغ النهائي — ' + r.ref, size: 'md', body: ovBody, foot: ovFoot, onClose: () => { UI.ov = null; } });
+  };
+  const ovParse = (v) => { const a = JK.parseSAR(v); return a === null || isNaN(a) ? null : a; };
+  UI.act['ov-fee'] = (el) => { const a = ovParse(el.value); if (a === null) { toast('أدخل مبلغاً صحيحاً (مثال: 51.25).', 'danger'); return; } UI.ov.fee = a; renderModal(); };
+  UI.act['ov-svc'] = (el) => { const a = ovParse(el.value); if (a === null) { toast('أدخل مبلغاً صحيحاً.', 'danger'); return; } const r = byId(office().requests, UI.ov.id); UI.ov.fee = ovState(r).max - a; renderModal(); };
+  UI.act['ov-set'] = (el) => { UI.ov.fee = parseInt(el.dataset.v, 10); renderModal(); };
+  UI.act['ov-reason'] = (el) => { UI.ov.reason = el.value; };
+  UI.act['ov-submit'] = () => {
+    const ov = UI.ov, t = document.getElementById('ov-reason'); if (t) ov.reason = t.value;
+    const r = run('overrideRequest', { requestId: ov.id, officeFee: ov.fee, reason: ov.reason }, (res) => res.status === 'override_sent' ? 'أُرسل المبلغ المعدّل للعميل للموافقة.' : 'اعتُمد الطلب بالمبلغ المعدّل.');
+    if (r.ok) { UI.ov = null; closeModal(); }
+  };
+  UI.act['rq-ov-withdraw'] = (el) => run('withdrawOverride', { requestId: el.dataset.id }, 'سُحب التعديل وعاد الطلب للمراجعة.');
+  UI.act['rq-ov-resp'] = (el) => run('respondOverride', { requestId: el.dataset.id, accept: el.dataset.a === '1', note: el.dataset.a === '1' ? '' : 'رفض من محاكاة البوابة' }, el.dataset.a === '1' ? 'وافق العميل (محاكاة) وطُبق المبلغ.' : 'رفض العميل (محاكاة)؛ عاد الطلب للمراجعة.');
   UI.act['rq-propose'] = (el) => {
     const r = byId(office().requests, el.dataset.id), b = byId(office().bookings, r.bookingId), v = byId(b.visits, r.visitIds[0]);
     reqDialog('اقتراح موعد بديل', r.id, `<p>الموعد الحالي: ${dt(v.start)} — يبقى مؤكداً حتى يقبل العميل البديل.</p>
@@ -706,7 +785,7 @@
     'policy.created': 'إنشاء سياسة/نسخة', 'policy.edited': 'تعديل مسودة', 'policy.version_created': 'إنشاء نسخة جديدة', 'policy.duplicated': 'تكرار سياسة', 'policy.submitted': 'إرسال للمراجعة',
     'policy.published': 'نشر سياسة', 'policy.changes_requested': 'طلب تعديلات من المنصة', 'policy.archived': 'أرشفة سياسة', 'assignment.changed': 'تغيير ربط', 'sales.disabled': 'إيقاف البيع', 'sales.enabled': 'تفعيل البيع',
     'customer.accepted_policy': 'موافقة العميل على السياسة', 'booking.created': 'إنشاء حجز', 'request.submitted': 'تقديم طلب', 'request.decided': 'قرار على طلب', 'request.info_requested': 'طلب معلومات',
-    'request.info_provided': 'رد العميل', 'request.evidence_added': 'إضافة إثبات', 'request.proposal_accepted': 'قبول موعد بديل', 'request.proposal_rejected': 'رفض موعد بديل', 'fee.waived': 'إعفاء من رسوم المكتب',
+    'request.info_provided': 'رد العميل', 'request.evidence_added': 'إضافة إثبات', 'request.proposal_accepted': 'قبول موعد بديل', 'request.proposal_rejected': 'رفض موعد بديل', 'fee.waived': 'إعفاء من رسوم المكتب', 'request.overridden': 'تعديل يدوي للمبلغ', 'request.override_proposed': 'تعديل يدوي أعلى من السياسة', 'request.override_accepted': 'موافقة العميل على المبلغ المعدّل', 'request.override_rejected': 'رفض العميل للمبلغ المعدّل', 'request.override_withdrawn': 'سحب التعديل اليدوي',
     'schedule.proposed': 'اقتراح موعد', 'schedule.changed': 'تغيير موعد', 'refund.created': 'إنشاء استرداد', 'refund.approved': 'اعتماد استرداد', 'refund.started': 'بدء تنفيذ استرداد', 'refund.completed': 'اكتمال استرداد',
     'refund.failed': 'فشل استرداد', 'refund.retried': 'إعادة محاولة استرداد', 'refund.duplicate_callback_ignored': 'تجاهل إشعار مكرر', 'costing.prices_changed': 'تغيّر أسعار التكلفة', 'platform.rules_changed': 'تعديل قواعد المنصة'
   };

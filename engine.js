@@ -126,7 +126,7 @@
       office_cancel: 'إلغاء أو تعذّر من المكتب', no_show: 'تعذّر استقبال العاملة', partial_delivery: 'تنفيذ جزئي للخدمة',
       quality_issue: 'مشكلة بعد بدء الخدمة', credit_cancel: 'إلغاء موعد من الرصيد', package_refund: 'استرداد قيمة الباقة', exception_review: 'مراجعة استثنائية / حقوقية'
     },
-    requestStatus: { awaiting_review: 'بانتظار المراجعة', info_requested: 'بانتظار معلومات من العميل', proposal_sent: 'بانتظار رد العميل على المقترح', approved: 'معتمد', auto_approved: 'معتمد آلياً', rejected: 'مرفوض' },
+    requestStatus: { awaiting_review: 'بانتظار المراجعة', info_requested: 'بانتظار معلومات من العميل', proposal_sent: 'بانتظار رد العميل على المقترح', override_sent: 'بانتظار موافقة العميل على المبلغ المعدّل', approved: 'معتمد', auto_approved: 'معتمد آلياً', rejected: 'مرفوض' },
     refundState: { awaiting_review: 'بانتظار مراجعة المالية', approved: 'معتمد — بانتظار التنفيذ', processing: 'قيد المعالجة', completed: 'مكتمل', failed: 'فشل', not_required: 'غير مطلوب' },
     cause: { customer: 'العميل', office: 'المكتب', disputed: 'متنازع عليه', external: 'ظرف خارجي / سلامة', none: '—' },
     initiator: { customer: 'العميل', office: 'المكتب', platform: 'المنصة' },
@@ -510,7 +510,7 @@
       type: req.type, at: req.at, ok: true, blocked: null, canRequestReview: false, needsReview: false, reviewReasons: [], warnings: [], trace: [],
       rule: null, affected: [], eligible: 0, affectedOpen: 0, absorbed: 0, officeFeeBeforeWaiver: 0, waiver: 0, officeFee: 0,
       serviceRefund: 0, taxRefund: 0, jokrs: { refund: 0, retained: 0, text: '' }, totalRefund: 0, rescheduleFee: 0,
-      outcome: 'no_refund', destinations: [], creditOutcome: null,
+      outcome: 'no_refund', destinations: [], creditOutcome: null, manual: null,
       effects: { workers: [], visits: [], credits: [], schedule: null, replacement: null }
     };
   }
@@ -583,9 +583,21 @@
     R.absorbed = absorb;
     return feeTotal;
   }
-  function applyWaiver(R, groups, req) {
+  function groupOpen(g) { return g.open !== undefined ? g.open : g.items ? sum(g.items.map(function (it) { return it.open; })) : (g.fee || 0); }
+  function applyWaiver(R, groups, req, cap) {
     var total = sum(groups.map(function (g) { return g.fee || 0; }));
     R.officeFeeBeforeWaiver = total;
+    if (req.manualFee !== undefined && req.manualFee !== null) {
+      // Office manual override: the office sets the final office fee by hand (0 → full value).
+      var max = cap !== undefined ? cap : sum(groups.map(groupOpen));
+      var F = Math.max(0, Math.min(Math.round(req.manualFee), max));
+      var parts = groups.length === 1 ? [F] : allocate(F, groups.map(groupOpen));
+      groups.forEach(function (g, i) { g.fee = parts[i]; });
+      R.manual = { fee: F, policyFee: total, direction: F > total ? 'above' : F < total ? 'below' : 'same' };
+      R.waiver = 0;
+      tr(R, 1, 'تعديل يدوي من المكتب: رسوم المكتب النهائية ' + sar(F) + ' بدلاً من ' + sar(total) + ' وفق السياسة' + (F > total ? ' (أعلى من السياسة — تتطلب موافقة العميل)' : ''));
+      return;
+    }
     var w = Math.max(0, Math.min(req.waiver || 0, total));
     if (req.waiver > total) R.warnings.push('الإعفاء المطلوب أكبر من الرسوم؛ طُبّق بحد الرسوم (' + sar(total) + ').');
     if (w > 0) {
@@ -884,6 +896,12 @@
     if (['completed', 'partially_delivered'].indexOf(v.status) < 0) return block(R, 'مسار "مشكلة بعد بدء الخدمة" للزيارات المنفذة فقط.', false);
     var consumed = sum(v.workers.map(function (w) { return w.consumed || 0; }));
     var amt = req.qualityAmount || 0;
+    if (req.manualFee !== undefined && req.manualFee !== null) {
+      var mf = Math.max(0, Math.min(Math.round(req.manualFee), consumed));
+      R.manual = { fee: mf, policyFee: consumed - amt, direction: 'quality' };
+      amt = consumed - mf;
+      tr(R, 1, 'تعديل يدوي من المكتب: التعويض النهائي ' + sar(amt) + ' من قيمة الزيارة ' + sar(consumed));
+    }
     R.needsReview = true;
     R.reviewReasons.push('مشكلة جودة/خدمة بعد البدء — تتطلب مراجعة وتحديد مبلغ التعويض.');
     if (amt > consumed) { R.warnings.push('المبلغ المقترح يتجاوز قيمة الزيارة المستهلكة؛ حُدّ بـ ' + sar(consumed) + '.'); amt = consumed; }
@@ -969,7 +987,7 @@
       tr(R, 4, label);
     }
     var gWaiver = [{ fee: fee }];
-    applyWaiver(R, gWaiver, req); fee = gWaiver[0].fee;
+    applyWaiver(R, gWaiver, req, eligible); fee = gWaiver[0].fee;
     var absorb = openSum - eligible, absParts = allocate(absorb, opens);
     var rems = opens.map(function (o, i) { return o - absParts[i]; });
     var feeParts = allocate(fee, rems);
@@ -1224,7 +1242,7 @@
     validatePolicy: validatePolicy, restrictedReasons: restrictedReasons,
     effectiveVersion: effectiveVersion, scheduledVersions: scheduledVersions, findPackage: findPackage, resolvePolicy: resolvePolicy,
     workerOpen: workerOpen, visitOpen: visitOpen, creditOpen: creditOpen, bookingFinance: bookingFinance, paidVisitCount: paidVisitCount,
-    checkAvailability: checkAvailability, calculate: calculate, policyText: policyText, freeDeadline: freeDeadline,
+    checkAvailability: checkAvailability, calculate: calculate, taxShare: taxShare, refundDestinations: destinations, policyText: policyText, freeDeadline: freeDeadline,
     flattenForDiff: flattenForDiff, diffVersions: diffVersions
   });
 })(typeof window !== 'undefined' ? window : globalThis);

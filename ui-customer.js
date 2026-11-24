@@ -12,8 +12,8 @@
   const now = () => S.state.demo.now;
 
   /* ---------------- customer-facing wording ---------------- */
-  const REQ_STATUS = { awaiting_review: 'قيد المراجعة لدى المكتب', info_requested: 'مطلوب منك معلومات', proposal_sent: 'بانتظار ردك', approved: 'تم', auto_approved: 'تم', rejected: 'مرفوض' };
-  const REQ_TONE = { awaiting_review: 'warning', info_requested: 'danger', proposal_sent: 'danger', approved: 'success', auto_approved: 'success', rejected: 'muted' };
+  const REQ_STATUS = { awaiting_review: 'قيد المراجعة لدى المكتب', info_requested: 'مطلوب منك معلومات', proposal_sent: 'بانتظار ردك', override_sent: 'بانتظار موافقتك على المبلغ', approved: 'تم', auto_approved: 'تم', rejected: 'مرفوض' };
+  const REQ_TONE = { awaiting_review: 'warning', info_requested: 'danger', proposal_sent: 'danger', override_sent: 'danger', approved: 'success', auto_approved: 'success', rejected: 'muted' };
   const RF_STATUS = { awaiting_review: 'قيد المراجعة', approved: 'معتمد — سيُحوَّل قريباً', processing: 'جارٍ التحويل', completed: 'تم الاسترداد', failed: 'تأخر التحويل — نعيد المحاولة', not_required: 'لا يوجد مبلغ نقدي' };
   const RF_TONE = { awaiting_review: 'warning', approved: 'info', processing: 'info', completed: 'success', failed: 'danger', not_required: 'muted' };
   const VISIT_STATUS = { scheduled: 'مؤكدة', completed: 'تمت', canceled: 'ملغاة', customer_no_show: 'لم تتم (تعذّر الاستقبال)', partially_delivered: 'تمت جزئياً', office_canceled: 'ألغاها المكتب', replaced: 'استُبدلت بموعد آخر', canceled_late: 'ملغاة — احتُسب الرصيد' };
@@ -31,7 +31,7 @@
   const myBookings = () => cxOffice().bookings.filter((b) => b.customerId === cxCustomer().id);
   const myRequests = () => { const ids = myBookings().map((b) => b.id); return cxOffice().requests.filter((r) => ids.includes(r.bookingId)); };
   const myRefunds = () => { const ids = myBookings().map((b) => b.id); return cxOffice().refunds.filter((r) => ids.includes(r.bookingId)); };
-  const needsAction = (r) => ['proposal_sent', 'info_requested'].includes(r.status);
+  const needsAction = (r) => ['proposal_sent', 'info_requested', 'override_sent'].includes(r.status);
   const money = (v) => `<span class="money">${h(JK.sar(v))}</span>`;
 
   function nav(s, p) { cx().stack.push(Object.assign({ s }, p || {})); UI.render(); scrollPhone(); }
@@ -97,7 +97,7 @@
     return {
       title: 'مرحباً ' + c.name.split(' ')[0], noBack: true,
       body: `
-        ${act.length ? `<section class="cx-sec"><h3 class="cx-h">${ic('bell')} يحتاج ردّك</h3>${act.map((r) => `<button type="button" class="cx-alert" data-act="cx-go" data-s="request" data-id="${h(r.id)}"><strong>${h(r.status === 'proposal_sent' ? 'اقترح المكتب موعداً بديلاً' : 'المكتب يطلب معلومات إضافية')}</strong><span>${h(L.requestType[r.type])} · ${h(r.bookingRef)}</span>${ic('chev')}</button>`).join('')}</section>` : ''}
+        ${act.length ? `<section class="cx-sec"><h3 class="cx-h">${ic('bell')} يحتاج ردّك</h3>${act.map((r) => `<button type="button" class="cx-alert" data-act="cx-go" data-s="request" data-id="${h(r.id)}"><strong>${h(r.status === 'proposal_sent' ? 'اقترح المكتب موعداً بديلاً' : r.status === 'override_sent' ? 'عدّل المكتب مبلغ طلبك — يحتاج موافقتك' : 'المكتب يطلب معلومات إضافية')}</strong><span>${h(L.requestType[r.type])} · ${h(r.bookingRef)}</span>${ic('chev')}</button>`).join('')}</section>` : ''}
         ${next ? `<section class="cx-sec"><h3 class="cx-h">موعدك القادم</h3><button type="button" class="cx-next" data-act="cx-go" data-s="booking" data-id="${h(next.b.id)}">
             <span class="cx-next-date">${ic('calendar')}<span><b>${h(JK.fmtDate(next.v.start))}</b><span>${h(JK.fmtTime(next.v.start))} · ${h(next.b.durationMin / 60)} ساعات</span></span></span>
             <span class="cx-next-meta">${h(next.b.packageName)}<span class="cx-muted">${h(next.v.workers.filter((w) => w.status === 'assigned').map((w) => w.name).join('، '))}</span></span>
@@ -214,7 +214,7 @@
     const at = Date.parse(now());
     const up = upcoming(b);
     const reqs = myRequests().filter((r) => r.bookingId === b.id).sort((a, z) => Date.parse(z.createdAt) - Date.parse(a.createdAt));
-    const openReq = reqs.find((r) => ['awaiting_review', 'info_requested', 'proposal_sent'].includes(r.status));
+    const openReq = reqs.find((r) => ['awaiting_review', 'info_requested', 'proposal_sent', 'override_sent'].includes(r.status));
     const canCancel = up.length > 0 || (b.type === 'credits' && b.credits.items.some((c) => c.state === 'available'));
     const done = b.visits.filter((v) => ['completed', 'partially_delivered'].includes(v.status));
     const [st, tone] = bookingStatus(b);
@@ -376,6 +376,15 @@
             <p class="cx-prop">${ic('calendar')} <b>${h(JK.fmtDT(prop.start))}</b></p>
             ${r.type === 'office_cancel' ? `<p class="cx-muted">لأن الإلغاء من المكتب: إن رفضت البديل تسترد المبلغ كاملاً بلا رسوم (بما فيها رسوم JOKRS).</p>` : `<p class="cx-muted">موعدك الأصلي يبقى مؤكداً حتى تقرر. رفضك لا يغيّر وقت طلبك ولا شريحة الرسوم.</p>`}
             <div class="cx-actions"><button type="button" class="cx-btn primary" data-act="cx-prop" data-id="${h(r.id)}" data-a="1">قبول الموعد</button><button type="button" class="cx-btn" data-act="cx-prop" data-id="${h(r.id)}" data-a="0">${r.type === 'office_cancel' ? 'رفض واسترداد كامل' : 'رفض'}</button></div></section>` : ''}
+        ${r.status === 'override_sent' && r.override ? `<section class="cx-sec cx-action"><h3 class="cx-h">${ic('bell')} عدّل المكتب مبلغ طلبك</h3>
+            <p class="cx-muted">المبلغ الجديد أقل مما تنص عليه السياسة التي وافقت عليها، لذلك لن يُطبق إلا بموافقتك.</p>
+            <table class="cx-price cx-ov"><thead><tr><th></th><th>حسب السياسة</th><th>المعدّل</th></tr></thead><tbody>
+              <tr><td>رسوم المكتب</td><td>${money(r.override.policyFee)}</td><td><b>${money(r.override.officeFee)}</b></td></tr>
+              <tr class="cx-total"><td>يُعاد إليك</td><td>${money(r.override.policyRefund)}</td><td><b>${money(r.override.refund)}</b></td></tr></tbody></table>
+            <p class="cx-quote"><b>سبب المكتب:</b> ${h(r.override.reason)}</p>
+            <label class="cx-field"><span>ملاحظتك (اختيارية عند الرفض)</span><textarea id="cx-ovnote" rows="2"></textarea></label>
+            <div class="cx-actions"><button type="button" class="cx-btn primary" data-act="cx-ov" data-id="${h(r.id)}" data-a="1">موافق على المبلغ</button><button type="button" class="cx-btn" data-act="cx-ov" data-id="${h(r.id)}" data-a="0">رفض — أريد حسب السياسة</button></div>
+            <p class="cx-muted small">${r.override.reopened ? 'إن رفضت يبقى القرار السابق وفق السياسة كما هو.' : 'إن رفضت يعود الطلب لمراجعة المكتب، وتبقى السياسة التي وافقت عليها هي المرجع.'} يمكنك أيضاً طلب مراجعة لدى JOKRS.</p></section>` : ''}
         ${r.status === 'info_requested' ? `<section class="cx-sec cx-action"><h3 class="cx-h">${ic('bell')} المكتب يطلب معلومات</h3>${lastInfo ? `<p class="cx-quote">${h(lastInfo.text.replace(/^طُلبت معلومات من العميل:\s*/, ''))}</p>` : ''}
             <label class="cx-field"><span>ردّك</span><textarea id="cx-info" rows="3"></textarea></label><button type="button" class="cx-btn primary" data-act="cx-info" data-id="${h(r.id)}">إرسال الرد</button></section>` : ''}
         ${r.status === 'rejected' && r.decision ? `<section class="cx-sec"><h3 class="cx-h">سبب الرفض</h3><p class="cx-quote">${h(r.decision.note)}</p><p class="cx-muted small">يحق لك طلب مراجعة القرار لدى منصة JOKRS.</p></section>` : ''}
@@ -384,7 +393,8 @@
               : r.calc.outcome === 'credit_restore' ? `<div><dt>النتيجة</dt><dd>أُعيد الموعد إلى رصيدك</dd></div>`
               : r.calc.outcome === 'replacement' ? `<div><dt>النتيجة</dt><dd>تم حجز الموعد البديل دون أي رسوم</dd></div>`
               : `<div><dt>المبلغ المعاد</dt><dd>${money(r.calc.totalRefund)}</dd></div>${r.calc.officeFee ? `<div><dt>رسوم المكتب</dt><dd>${money(r.calc.officeFee)}</dd></div>` : ''}${r.calc.jokrs.retained ? `<div><dt>رسوم JOKRS غير المستردة</dt><dd>${money(r.calc.jokrs.retained)}</dd></div>` : ''}`}
-            ${r.waiver ? `<div><dt>إعفاء من المكتب</dt><dd>${money(r.waiver)}</dd></div>` : ''}</dl></section>` : ''}
+            ${r.waiver ? `<div><dt>إعفاء من المكتب</dt><dd>${money(r.waiver)}</dd></div>` : ''}</dl>
+            ${r.override && ['applied', 'accepted'].includes(r.override.status) ? `<p class="cx-note">${ic('edit')} حدّد المكتب هذا المبلغ يدوياً${r.override.status === 'applied' && r.override.policyFee !== null && r.override.officeFee < r.override.policyFee ? ' لصالحك (السياسة كانت تعيد ' + h(JK.sar(r.override.policyRefund)) + ')' : r.override.status === 'accepted' ? ' بعد موافقتك' : ''}. السبب: ${h(r.override.reason)}</p>` : ''}</section>` : ''}
         ${hasMoney ? `<section class="cx-sec"><h3 class="cx-h">تتبع الاسترداد</h3><div class="cx-card-top"><b>${money(rf.components.total)}</b>${badge(RF_STATUS[rf.state], RF_TONE[rf.state])}</div>
             <p class="cx-muted">${rf.destinations.map((d) => h(L.destAction[d.action])).join(' + ')}</p>
             ${approvedAt && rf.state !== 'completed' ? `<p class="cx-muted">متوقع قبل ${h(JK.fmtDate(JK.addDays(approvedAt, rules.processingDays, rules.dayType)))}</p>` : ''}
@@ -546,6 +556,12 @@
       const accept = el.dataset.a === '1';
       const r = cxRun('respondProposal', { requestId: el.dataset.id, accept });
       if (r.ok) toast(r.res && r.res.warning ? r.res.warning : accept ? 'قبلت الموعد البديل.' : 'رفضت المقترح.', r.res && r.res.warning ? 'info' : 'success');
+    },
+    'cx-ov': (el) => {
+      const accept = el.dataset.a === '1', t = document.getElementById('cx-ovnote');
+      const go = () => cxRun('respondOverride', { requestId: el.dataset.id, accept, note: t ? t.value : '' }, accept ? 'وافقت على المبلغ المعدّل.' : 'رفضت المبلغ المعدّل؛ عاد الطلب لمراجعة المكتب.');
+      if (accept) confirmDialog({ title: 'الموافقة على المبلغ المعدّل', body: '<p>بالموافقة يُطبق المبلغ الذي حدده المكتب بدلاً من حساب السياسة، ولا يمكن التراجع بعد التنفيذ.</p>', ok: 'موافق' }).then((y) => { if (y) go(); });
+      else go();
     },
     'cx-info': (el) => {
       const t = document.getElementById('cx-info');

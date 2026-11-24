@@ -26,7 +26,7 @@
   const dt = (v) => `<time datetime="${h(v || '')}">${h(JK.fmtDT(v))}</time>`;
   const dts = (v) => `<time datetime="${h(v || '')}">${h(JK.fmtDTs(v))}</time>`;
   const TONES = {
-    req: { awaiting_review: 'warning', info_requested: 'warning', proposal_sent: 'info', approved: 'success', auto_approved: 'success', rejected: 'danger' },
+    req: { awaiting_review: 'warning', info_requested: 'warning', proposal_sent: 'info', override_sent: 'info', approved: 'success', auto_approved: 'success', rejected: 'danger' },
     refund: { awaiting_review: 'warning', approved: 'info', processing: 'info', completed: 'success', failed: 'danger', not_required: 'muted' },
     version: { draft: 'muted', pending_review: 'warning', published: 'success', rejected: 'danger', scheduled: 'info', superseded: 'muted', archived: 'muted' },
     visit: { scheduled: 'info', completed: 'success', canceled: 'muted', customer_no_show: 'warning', partially_delivered: 'warning', office_canceled: 'danger', replaced: 'muted', canceled_late: 'warning' }
